@@ -1,0 +1,21 @@
+/* ============================================================
+   CARD ART — latar kartu kredit (gambar di folder img/)
+   Teks contoh (nama, nomor, masa berlaku) sudah dihapus dari gambar;
+   nomor 4 digit, limit, dan nama pemilik ditampilkan oleh aplikasi.
+   ============================================================ */
+.cc-skin-mandiri-jcb {
+  background-image: url("../img/card-mandiri-jcb.webp");
+  background-color: transparent;
+  --cc-num: #7A5A22; --cc-name: #FFF8E6; --cc-limit: #6E5120;
+  --cc-shadow: 0 1px 0 rgba(255,255,255,.55);
+  --cc-name-shadow: 0 1px 1px rgba(60,40,10,.45);
+  --cc-pos-num: 53.5%; --cc-pos-limit-top: 64.5%; --cc-pos-limit-left: 37.5%; --cc-pos-name: 82.5%; --cc-pos-x: 8.2%;
+}
+.cc-skin-mandiri-pertamina {
+  background-image: url("../img/card-mandiri-pertamina.webp");
+  background-color: #000;
+  --cc-num: #E6C67F; --cc-name: #E6C67F; --cc-limit: #E6C67F;
+  --cc-shadow: 0 1px 2px rgba(0,0,0,.9);
+  --cc-name-shadow: 0 1px 2px rgba(0,0,0,.9);
+  --cc-pos-num: 53.5%; --cc-pos-limit-top: 69%; --cc-pos-limit-left: 39%; --cc-pos-name: 81%; --cc-pos-x: 7.6%;
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121212">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27%23FF7A00%27/%3E%3Cpath d=%27M16 22h28a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6V22z%27 fill=%27%23fff%27/%3E%3Ccircle cx=%2740%27 cy=%2735%27 r=%274%27 fill=%27%23FF7A00%27/%3E%3C/svg%3E">
+  <title>Keuangan Digital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script>
+    // Terapkan tema sebelum halaman digambar (tanpa kedip)
+    (function () {
+      try {
+        var t = localStorage.getItem('kd_theme');
+        if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/card-art.css">
+</head>
+<body>
+  <a class="skip-link" href="javascript:void(0)" onclick="document.getElementById('main').focus()">Lewati ke konten</a>
+
+  <div class="app" id="app">
+    <!-- ═════════ SIDEBAR (desktop/tablet) ═════════ -->
+    <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
+      <div class="brand">
+        <div class="brand-logo"><i class="bi bi-wallet2"></i></div>
+        <div class="brand-text">
+          <strong>Keuangan Digital</strong>
+          <small>PERSONAL FINANCE</small>
+        </div>
+      </div>
+      <nav class="side-nav">
+        <button class="nav-item" data-nav="dashboard"><i class="bi bi-grid-1x2"></i><span>Dashboard</span></button>
+        <button class="nav-item" data-nav="transaksi"><i class="bi bi-receipt"></i><span>Transaksi</span></button>
+        <button class="nav-item" data-nav="kartu"><i class="bi bi-credit-card-2-front"></i><span>Kartu Kredit</span></button>
+        <button class="nav-item" data-nav="tagihan"><i class="bi bi-bell"></i><span>Tagihan &amp; Pengingat</span><b class="nav-badge" data-badge="reminder" hidden>0</b></button>
+        <button class="nav-item" data-nav="laporan"><i class="bi bi-bar-chart-line"></i><span>Laporan</span></button>
+        <button class="nav-item" data-nav="pengaturan"><i class="bi bi-gear"></i><span>Pengaturan</span></button>
+      </nav>
+      <div class="side-foot">
+        <button class="nav-item collapse-btn" onclick="toggleSidebar()" aria-label="Ciutkan menu">
+          <i class="bi bi-chevron-double-left"></i><span>Ciutkan Menu</span>
+        </button>
+        <button class="nav-item" onclick="logoutDevice()" aria-label="Keluar"><i class="bi bi-box-arrow-right"></i><span>Keluar</span></button>
+        <div class="side-account"><span class="dot dot-ok" id="syncDot"></span><span id="syncText">Tersinkron</span></div>
+      </div>
+    </aside>
+
+    <!-- ═════════ AREA UTAMA ═════════ -->
+    <div class="main-wrap">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="crumb"><span class="crumb-muted">Keuangan Digital</span><i class="bi bi-chevron-right"></i><span id="crumbTitle">Dashboard</span></div>
+          <div class="mobile-title"><small>KEUANGAN DIGITAL</small><strong id="mobileTitle">Dashboard</strong></div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-primary btn-sm hide-sm" onclick="openTrxForm()"><i class="bi bi-plus-lg"></i> Catat Transaksi</button>
+          <button class="icon-btn" onclick="openDrawer()" aria-label="Pengingat">
+            <i class="bi bi-bell"></i><b class="icon-badge" data-badge="reminder" hidden>0</b>
+          </button>
+          <button class="icon-btn" onclick="toggleTheme()" aria-label="Ganti tema terang/gelap">
+            <i class="bi bi-moon-stars theme-ic-dark"></i><i class="bi bi-sun theme-ic-light"></i>
+          </button>
+          <div class="avatar" id="avatar" title="Pemilik">RG</div>
+        </div>
+      </header>
+
+      <main class="content" id="main" tabindex="-1">
+        <div class="sync-banner" id="syncBanner" hidden></div>
+
+        <!-- Setiap halaman sudah ada di DOM → navigasi 0 ms (show/hide) -->
+        <section class="page active" id="page-dashboard" data-title="Dashboard">
+          <div class="skeleton-page">
+            <div class="sk sk-title"></div>
+            <div class="grid g-4"><div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div></div>
+            <div class="grid g-2-1"><div class="sk sk-chart"></div><div class="sk sk-chart"></div></div>
+          </div>
+        </section>
+        <section class="page" id="page-transaksi" data-title="Transaksi"></section>
+        <section class="page" id="page-kartu" data-title="Kartu Kredit"></section>
+        <section class="page" id="page-kartuDetail" data-title="Detail Kartu"></section>
+        <section class="page" id="page-tagihan" data-title="Tagihan & Pengingat"></section>
+        <section class="page" id="page-laporan" data-title="Laporan"></section>
+        <section class="page" id="page-pengaturan" data-title="Pengaturan"></section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ═════════ NAVIGASI BAWAH (ponsel) ═════════ -->
+  <nav class="bottom-nav" aria-label="Navigasi ponsel">
+    <button class="bn-item" data-nav="dashboard"><i class="bi bi-grid-1x2"></i><span>Dashboard</span></button>
+    <button class="bn-item" data-nav="transaksi"><i class="bi bi-receipt"></i><span>Transaksi</span></button>
+    <button class="bn-fab" onclick="openTrxForm()" aria-label="Catat transaksi"><i class="bi bi-plus-lg"></i></button>
+    <button class="bn-item" data-nav="tagihan"><i class="bi bi-calendar2-check"></i><span>Tagihan</span><b class="bn-dot" data-badge="reminder-dot" hidden></b></button>
+    <button class="bn-item" data-nav="lainnya"><i class="bi bi-three-dots"></i><span>Lainnya</span></button>
+  </nav>
+
+  <!-- ═════════ OVERLAY: drawer, modal, sheet menu, toast ═════════ -->
+  <div class="backdrop" id="backdrop" onclick="closeAllOverlays()"></div>
+
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <div class="drawer-head">
+      <div>
+        <small class="eyebrow">PEMBERITAHUAN</small>
+        <h3 id="drawerTitle">Pengingat &amp; Jatuh Tempo</h3>
+      </div>
+      <button class="icon-btn" onclick="closeAllOverlays()" aria-label="Tutup"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-foot">
+      <button class="btn btn-secondary w-100" onclick="closeAllOverlays(); navigateTo('pengaturan'); setSettingsTab('pengingat')"><i class="bi bi-sliders"></i> Pengaturan Jarak Pengingat</button>
+      <small class="muted" id="drawerFootNote">Pengingat dihitung saat aplikasi dibuka.</small>
+    </div>
+  </aside>
+
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <div class="sheet-menu" id="moreMenu" role="dialog" aria-label="Menu lainnya">
+    <div class="sheet-grip"></div>
+    <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('kartu')"><i class="bi bi-credit-card-2-front"></i> Kartu Kredit</button>
+    <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('laporan')"><i class="bi bi-bar-chart-line"></i> Laporan</button>
+    <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('pengaturan')"><i class="bi bi-gear"></i> Pengaturan</button>
+    <button class="sheet-item" onclick="closeAllOverlays(); logoutDevice()"><i class="bi bi-box-arrow-right"></i> Keluar</button>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+  <!-- LAYAR MASUK — menutupi aplikasi sampai login berhasil -->
+  <div class="auth-screen" id="authScreen" hidden>
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="brand-logo"><i class="bi bi-wallet2"></i></div>
+      <h1 id="authTitle">Keuangan Digital</h1>
+      <p id="authSub">Masuk untuk melanjutkan</p>
+      <div class="auth-msg" id="authMsg" hidden></div>
+      <form id="authForm" novalidate></form>
+      <div class="auth-foot"><i class="bi bi-shield-lock"></i> Data tersimpan di Google Sheets milik Anda</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
