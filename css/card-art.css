@@ -4,7 +4,7 @@
    nomor 4 digit, limit, dan nama pemilik ditampilkan oleh aplikasi.
    ============================================================ */
 .cc-skin-mandiri-jcb {
-  background-image: url("../img/card-mandiri-jcb.webp");
+  background-image: url("../img/card-mandiri-jcb.webp?v=2");
   background-color: #fff;
   --cc-num: #A47A26; --cc-name: #FFF8E6; --cc-limit: #8A6620;
   --cc-shadow: 0 1px 0 rgba(255,255,255,.7);
