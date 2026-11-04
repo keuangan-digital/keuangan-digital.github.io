@@ -9,17 +9,17 @@
   "lang": "id",
   "icons": [
     {
-      "src": "img/kental-192.png",
+      "src": "img/kental-192.png?v=4",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "img/kental-512.png",
+      "src": "img/kental-512.png?v=4",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "img/icon.svg",
+      "src": "img/icon.svg?v=4",
       "sizes": "any",
       "type": "image/svg+xml"
     }
