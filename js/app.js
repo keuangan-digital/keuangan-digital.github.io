@@ -2167,14 +2167,14 @@ function renderGajiTab() {
   const lead = (toDate(per.dari).getDay() + 6) % 7; // Senin = kolom pertama
   const cells = Array(lead).fill('<span class="ts-day ts-blank"></span>').concat(tanggalPeriode(P).map(ds => {
     const d = toDate(ds), on = ds in dr.days, jam = num(dr.days[ds]), lib = namaLibur(ds, cfg), wk = isWeekend(d);
-    const roster = cfg.pola === 'roster' && isOnDuty(ds, cfg);
-    const cls = ['ts-day', on ? 'on' : '', on && jam > cfg.jam ? 'ot' : '', lib ? 'merah' : wk ? 'wk' : '', roster ? 'duty' : '', ds === today() ? 'now' : '', ds === dr.sel ? 'sel' : ''].join(' ');
-    const title = `${HARI[d.getDay()]}, ${fmtDate(ds, true)}${lib ? ' • ' + lib : ''}${on ? ` • masuk ${jam} jam` : ' • tidak masuk'}`;
+    const roster = cfg.pola === 'roster' && isOnDuty(ds, cfg), luar = on && !isPolaKerja(ds, cfg);
+    const cls = ['ts-day', on ? 'on' : '', on && jam > cfg.jam ? 'ot' : '', luar ? 'luar' : '', lib ? 'merah' : wk ? 'wk' : '', roster ? 'duty' : '', ds === today() ? 'now' : '', ds === dr.sel ? 'sel' : ''].join(' ');
+    const title = `${HARI[d.getDay()]}, ${fmtDate(ds, true)}${lib ? ' • ' + lib : ''}${on ? ` • masuk ${jam} jam` : ' • tidak masuk'}${luar ? ' • di luar jadwal' : ''}`;
     return `<button class="${cls}" onclick="tsTap('${ds}')" title="${esc(title)}" aria-pressed="${on}" aria-label="${esc(title)}"><b>${d.getDate()}</b><small>${on ? jam + 'j' : ''}</small></button>`;
   })).join('');
   const selJam = dr.sel ? num(dr.days[dr.sel]) : 0, selD = dr.sel ? toDate(dr.sel) : null;
   const editor = dr.sel ? `<div class="ts-editor">
-      <div class="ts-ed-head"><div><b>${HARI[selD.getDay()]}, ${fmtDate(dr.sel, true)}</b><small>${namaLibur(dr.sel, cfg) ? esc(namaLibur(dr.sel, cfg)) + ' • ' : ''}${selJam > cfg.jam ? `lembur ${selJam - cfg.jam} jam` : 'jam normal'}</small></div>
+      <div class="ts-ed-head"><div><b>${HARI[selD.getDay()]}, ${fmtDate(dr.sel, true)}</b><small>${!isPolaKerja(dr.sel, cfg) ? '<b class="txt-luar">Masuk di luar jadwal</b> • ' : ''}${namaLibur(dr.sel, cfg) ? esc(namaLibur(dr.sel, cfg)) + ' • ' : ''}${selJam > cfg.jam ? `lembur ${selJam - cfg.jam} jam` : 'jam normal'}</small></div>
         <button class="btn-icon" onclick="tsTutup()" aria-label="Tutup"><i class="bi bi-x-lg"></i></button></div>
       <div class="ts-ed-body">
         <div class="stepper"><button onclick="tsJam(${selJam - 1})" aria-label="Kurangi jam">−</button><b>${selJam}<small> jam</small></b><button onclick="tsJam(${selJam + 1})" aria-label="Tambah jam">+</button></div>
@@ -2242,7 +2242,7 @@ function renderGajiTab() {
       <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${fmtYm(P, true)}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
     <div class="ts-grid">${['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(h => `<span class="ts-h">${h}</span>`).join('')}${cells}</div>
     ${editor}
-    <div class="ts-legend"><span><i class="lg on"></i>Masuk (jam normal)</span><span><i class="lg ot"></i>Lembur</span><span><i class="lg"></i>Tidak masuk / off</span><span><i class="lg merah"></i>Tanggal merah</span></div>
+    <div class="ts-legend"><span><i class="lg on"></i>Masuk (jam normal)</span><span><i class="lg ot"></i>Lembur</span><span><i class="lg luar"></i>Di luar jadwal</span><span><i class="lg"></i>Tidak masuk / off</span><span><i class="lg merah"></i>Tanggal merah</span></div>
     <div class="ts-foot">
       <div class="field" style="flex:1;min-width:180px"><label class="lbl" for="tsUpah">Upah harian periode ini</label><div class="money-input"><input class="input" id="tsUpah" inputmode="numeric" autocomplete="off" value="${fmtMoneyInput(dr.upah)}" oninput="this.value=fmtMoneyInput(this.value); tsUpah(this.value)" onchange="renderPengaturan()"></div></div>
       <div class="actions-row" style="margin:0">

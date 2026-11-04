@@ -639,6 +639,10 @@ textarea.input { min-height: 84px; resize: vertical; }
 .ts-day.now { box-shadow: 0 0 0 2px var(--text) inset; }
 .ts-day small:empty { display: none; }
 .ts-day.ot { background: #C25A00; border-color: #C25A00; color: #fff; }
+.ts-day.luar { background: #C1121F; border-color: #C1121F; color: #fff; }
+.ts-day.luar.ot { box-shadow: inset 0 -4px 0 rgba(0,0,0,.28); }
+.ts-legend .lg.luar { background: #C1121F; border-color: #C1121F; }
+.txt-luar { color: #C1121F; font-weight: 700; }
 .ts-day.sel { outline: 3px solid var(--text); outline-offset: 2px; z-index: 1; }
 .ts-day.duty:not(.on) { border-style: dashed; border-color: var(--primary); }
 .ts-editor { margin-top: 14px; border: 1.5px solid var(--primary); background: var(--primary-soft); border-radius: 16px; padding: 14px 16px; }
