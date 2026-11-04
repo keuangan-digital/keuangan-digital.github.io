@@ -37,7 +37,9 @@ const S = {
   settingsTab: 'akun',
   laporanRange: 6,
   kartuDetail: { id: null, tab: 'tagihan' },
-  storageInfo: null
+  storageInfo: null,
+  gajiYm: null,
+  tsDraft: null
 };
 
 function emptyData() {
@@ -496,6 +498,8 @@ function autoPost() {
     }
     if (last !== c.DitagihSampai) ops.push(up('Cicilan', Object.assign({}, c, { DitagihSampai: last })));
   });
+  // 2b. Gaji dari timesheet (pemasukan pada tanggal gajian)
+  ops.push(...gajiOps(notes));
   if (ops.length) applyOps(ops); // agar langkah 3 ikut menghitungnya
 
   // 3. Tagihan per siklus
@@ -1972,6 +1976,237 @@ function renderLaporan() {
   if (cat.rows.length) drawDonut('lapDonut', 'lapDonut', cat.rows);
 }
 
+/* ───────────── TIMESHEET & GAJI (daily rate) ─────────────
+   Gaji = jumlah hari kerja × upah harian. Masuk sebagai pemasukan pada tanggal
+   gajian (default 25). Jika jatuh di Sabtu/Minggu/tanggal merah → mundur ke hari
+   kerja sebelumnya. Semua data disimpan di tab Pengaturan (tanpa ubah backend):
+   gaji* = konfigurasi, ts_YYYY-MM = timesheet per bulan, tanggalMerahTambahan = libur tambahan. */
+const LIBUR_NASIONAL = {
+  // SKB 3 Menteri 2026
+  '2026-01-01': 'Tahun Baru 2026 Masehi', '2026-01-16': "Isra Mi'raj Nabi Muhammad SAW", '2026-02-17': 'Tahun Baru Imlek 2577',
+  '2026-03-19': 'Hari Suci Nyepi', '2026-03-21': 'Idul Fitri 1447 H', '2026-03-22': 'Idul Fitri 1447 H', '2026-04-03': 'Wafat Yesus Kristus',
+  '2026-04-05': 'Paskah', '2026-05-01': 'Hari Buruh Internasional', '2026-05-14': 'Kenaikan Yesus Kristus', '2026-05-27': 'Idul Adha 1447 H',
+  '2026-05-31': 'Hari Raya Waisak', '2026-06-01': 'Hari Lahir Pancasila', '2026-06-16': 'Tahun Baru Islam 1448 H', '2026-08-17': 'Proklamasi Kemerdekaan',
+  '2026-08-25': 'Maulid Nabi Muhammad SAW', '2026-12-25': 'Hari Natal',
+  // SKB 3 Menteri 2027
+  '2027-01-01': 'Tahun Baru 2027 Masehi', '2027-01-05': 'Isra Mikraj Nabi Muhammad SAW', '2027-02-06': 'Tahun Baru Imlek 2578',
+  '2027-03-08': 'Hari Suci Nyepi', '2027-03-10': 'Idulfitri 1448 H', '2027-03-11': 'Idulfitri 1448 H', '2027-03-26': 'Wafat Yesus Kristus',
+  '2027-03-28': 'Paskah', '2027-05-01': 'Hari Buruh Internasional', '2027-05-06': 'Kenaikan Yesus Kristus', '2027-05-17': 'Iduladha 1448 H',
+  '2027-05-20': 'Hari Raya Waisak', '2027-06-01': 'Hari Lahir Pancasila', '2027-06-06': 'Tahun Baru Islam 1449 H', '2027-08-15': 'Maulid Nabi Muhammad SAW',
+  '2027-08-17': 'Proklamasi Kemerdekaan', '2027-12-25': 'Hari Natal', '2027-12-26': 'Isra Mikraj Nabi Muhammad SAW'
+};
+const CUTI_BERSAMA = {
+  '2026-02-16': 'Cuti bersama Imlek', '2026-03-18': 'Cuti bersama Nyepi', '2026-03-20': 'Cuti bersama Idul Fitri', '2026-03-23': 'Cuti bersama Idul Fitri',
+  '2026-03-24': 'Cuti bersama Idul Fitri', '2026-05-15': 'Cuti bersama Kenaikan Yesus Kristus', '2026-05-28': 'Cuti bersama Idul Adha', '2026-12-24': 'Cuti bersama Natal',
+  '2027-02-05': 'Cuti bersama Imlek', '2027-03-09': 'Cuti bersama Idulfitri', '2027-03-12': 'Cuti bersama Idulfitri', '2027-03-15': 'Cuti bersama Idulfitri',
+  '2027-03-25': 'Cuti bersama Wafat Yesus Kristus', '2027-05-18': 'Cuti bersama Iduladha', '2027-05-19': 'Cuti bersama Waisak', '2027-12-24': 'Cuti bersama Natal'
+};
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+function jsonSetting(k, def) { try { const v = JSON.parse(setting(k, '')); return v == null ? def : v; } catch (e) { return def; } }
+function gajiCfg() {
+  return {
+    harian: num(setting('gajiHarian', 0)), akun: setting('gajiAkun', ''), tgl: Math.min(28, Math.max(1, num(setting('gajiTanggal', 25)) || 25)),
+    pola: setting('gajiPola', '5'), cutoff: num(setting('gajiCutoff', 0)), mulai: setting('gajiMulai', ''), cuti: setting('gajiCutiBersama', '0') === '1'
+  };
+}
+function liburTambahan() { return jsonSetting('tanggalMerahTambahan', []).filter(x => x && x.t); }
+/** Nama tanggal merah (libur nasional, tambahan, dan cuti bersama bila diaktifkan) atau '' */
+function namaLibur(ds, cfg) {
+  if (LIBUR_NASIONAL[ds]) return LIBUR_NASIONAL[ds];
+  const t = liburTambahan().find(x => x.t === ds); if (t) return t.n || 'Libur';
+  if ((cfg || gajiCfg()).cuti && CUTI_BERSAMA[ds]) return CUTI_BERSAMA[ds];
+  return '';
+}
+function isWeekend(d) { return d.getDay() === 0 || d.getDay() === 6; }
+/** Hari kerja menurut pola: 5 = Senin–Jumat, 6 = Senin–Sabtu; tanggal merah selalu libur */
+function isPolaKerja(d, cfg) { const w = d.getDay(); return w !== 0 && (cfg.pola === '6' || w !== 6) && !namaLibur(dstr(d), cfg); }
+/** Tanggal gajian bulan P: tanggal cfg.tgl, mundur bila Sabtu/Minggu/tanggal merah */
+function tglGajian(P, cfg) {
+  cfg = cfg || gajiCfg();
+  const d = toDate(dateInYm(P, cfg.tgl));
+  for (let i = 0; i < 15 && (isWeekend(d) || namaLibur(dstr(d), cfg)); i++) d.setDate(d.getDate() - 1);
+  return dstr(d);
+}
+function alasanMundur(P, cfg) {
+  const asli = dateInYm(P, cfg.tgl), d = toDate(asli);
+  if (tglGajian(P, cfg) === asli) return '';
+  return isWeekend(d) ? `${cfg.tgl} ${BULAN[d.getMonth()]} jatuh di hari ${HARI[d.getDay()]}` : `${cfg.tgl} ${BULAN[d.getMonth()]}: ${namaLibur(asli, cfg)}`;
+}
+/** Rentang tanggal periode timesheet bulan P */
+function periodeTs(P, cfg) {
+  if (!cfg.cutoff) return { dari: `${P}-01`, sampai: dateInYm(P, 31) };
+  const prev = ymAdd(P, -1), e = toDate(dateInYm(prev, cfg.cutoff)); e.setDate(e.getDate() + 1);
+  return { dari: dstr(e), sampai: dateInYm(P, cfg.cutoff) };
+}
+function tanggalPeriode(P, cfg) {
+  const { dari, sampai } = periodeTs(P, cfg), out = [];
+  for (let d = toDate(dari); dstr(d) <= sampai; d.setDate(d.getDate() + 1)) out.push(dstr(d));
+  return out;
+}
+function defaultHariKerja(P, cfg) { return tanggalPeriode(P, cfg).filter(s => isPolaKerja(toDate(s), cfg)); }
+/** Timesheet bulan P: tersimpan (ts_P) atau default dari pola kerja */
+function timesheet(P, cfg) {
+  cfg = cfg || gajiCfg();
+  const sv = jsonSetting('ts_' + P, null);
+  const days = sv && Array.isArray(sv.d) ? sv.d : defaultHariKerja(P, cfg);
+  const upah = sv && num(sv.u) > 0 ? num(sv.u) : cfg.harian;
+  return { P, days, hari: days.length, upah, total: Math.round(days.length * upah), tersimpan: !!sv, tgl: tglGajian(P, cfg) };
+}
+function gajiTrxId(P) { return `TRX-GJ-${P}`; }
+function katGaji() { const c = cats('Pemasukan'); const g = c.find(k => k.Nama === 'Gaji') || c[0]; return g ? g.ID : ''; }
+function gajiTrxRec(ts, cfg, ex) {
+  return { ID: gajiTrxId(ts.P), Tanggal: ts.tgl, Jenis: 'Pemasukan', Kategori: ex ? ex.Kategori : katGaji(), Keterangan: `Gaji ${fmtYm(ts.P, true)}`,
+    Nominal: ts.total, SumberDana: ex ? ex.SumberDana : cfg.akun, Referensi: 'TIMESHEET',
+    Catatan: `Timesheet: ${ts.hari} hari × ${rp(ts.upah)}`, Bukti: ex ? ex.Bukti : '', Dibuat: ex ? ex.Dibuat : new Date().toISOString(), Diubah: ex ? new Date().toISOString() : '' };
+}
+/** Dipanggil dari autoPost(): catat gaji yang tanggal gajiannya sudah tiba */
+function gajiOps(notes) {
+  const cfg = gajiCfg(), ops = [];
+  if (!cfg.akun || !cfg.mulai || !akun(cfg.akun)) return ops;
+  for (let P = cfg.mulai, n = 0; P <= thisYm() && n < 36; P = ymAdd(P, 1), n++) {
+    const ts = timesheet(P, cfg);
+    if (daysUntil(ts.tgl) > 0 || ts.total <= 0 || findBy('Transaksi', gajiTrxId(P))) continue;
+    ops.push(up('Transaksi', gajiTrxRec(ts, cfg))); notes.push(`Gaji ${fmtYm(P, true)} masuk: ${rp(ts.total)}`);
+  }
+  return ops;
+}
+
+// ── UI ──
+function gajiSetYm(P) { S.gajiYm = P; S.tsDraft = null; renderPengaturan(); }
+function tsDraft() {
+  const P = S.gajiYm || thisYm();
+  if (!S.tsDraft || S.tsDraft.P !== P) { const ts = timesheet(P); S.tsDraft = { P, days: new Set(ts.days), upah: ts.upah, dirty: false }; }
+  return S.tsDraft;
+}
+function tsToggle(ds) { const d = tsDraft(); d.days.has(ds) ? d.days.delete(ds) : d.days.add(ds); d.dirty = true; renderPengaturan(); }
+function tsIsi(mode) {
+  const d = tsDraft(), cfg = gajiCfg();
+  d.days = new Set(mode === 'kosong' ? [] : defaultHariKerja(d.P, cfg)); d.dirty = true; renderPengaturan();
+}
+function tsUpah(v) { const d = tsDraft(); d.upah = parseMoney(v); d.dirty = true; const el = $('#tsTotal'); if (el) el.innerHTML = money(d.days.size * d.upah); }
+function saveTimesheet() {
+  const d = tsDraft(), cfg = gajiCfg();
+  const days = Array.from(d.days).sort();
+  const rec = { d: days }; if (d.upah && d.upah !== cfg.harian) rec.u = d.upah;
+  const ops = [up('Pengaturan', { Kunci: 'ts_' + d.P, Nilai: JSON.stringify(rec) })];
+  applyOps(ops.slice()); // agar timesheet() membaca nilai baru
+  const ex = findBy('Transaksi', gajiTrxId(d.P));
+  if (ex) { const ts = timesheet(d.P, cfg); if (ts.total > 0) ops.push(up('Transaksi', gajiTrxRec(ts, cfg, ex))); else ops.push(del('Transaksi', ex.ID)); }
+  S.tsDraft = null;
+  commit(ops, ex ? 'Timesheet disimpan • pemasukan gaji diperbarui' : 'Timesheet disimpan');
+}
+function saveGajiCfg() {
+  const v = id => $('#' + id).value;
+  const harian = parseMoney(v('gjHarian')), akunId = v('gjAkun');
+  if (!harian) { toast('Isi upah harian terlebih dahulu', 'error'); return; }
+  if (!akunId) { toast('Pilih akun penerima gaji', 'error'); return; }
+  const kv = { gajiHarian: harian, gajiAkun: akunId, gajiTanggal: Math.min(28, Math.max(1, num(v('gjTgl')) || 25)), gajiPola: v('gjPola'),
+    gajiCutoff: v('gjCutoff'), gajiMulai: v('gjMulai') || thisYm(), gajiCutiBersama: $('#gjCuti').checked ? '1' : '0' };
+  S.tsDraft = null;
+  commit(Object.keys(kv).map(k => up('Pengaturan', { Kunci: k, Nilai: String(kv[k]) })), 'Pengaturan gaji disimpan');
+}
+function addLibur() {
+  const t = $('#lbTgl').value, n = $('#lbNama').value.trim();
+  if (!t) { toast('Pilih tanggal libur', 'error'); return; }
+  const list = liburTambahan().filter(x => x.t !== t); list.push({ t, n: n || 'Libur' }); list.sort((a, b) => a.t.localeCompare(b.t));
+  S.tsDraft = null; commit([up('Pengaturan', { Kunci: 'tanggalMerahTambahan', Nilai: JSON.stringify(list) })], 'Tanggal merah ditambahkan');
+}
+function delLibur(t) {
+  S.tsDraft = null;
+  commit([up('Pengaturan', { Kunci: 'tanggalMerahTambahan', Nilai: JSON.stringify(liburTambahan().filter(x => x.t !== t)) })], 'Tanggal merah dihapus');
+}
+
+function renderGajiTab() {
+  const cfg = gajiCfg(), P = S.gajiYm || thisYm(), dr = tsDraft();
+  const siap = cfg.harian > 0 && cfg.akun && akun(cfg.akun);
+  const tgl = tglGajian(P, cfg), alasan = alasanMundur(P, cfg), sudah = findBy('Transaksi', gajiTrxId(P));
+  const total = dr.days.size * dr.upah, dUntil = daysUntil(tgl);
+  const status = sudah ? `<span class="pill pill-ok pill-dot">Sudah masuk ${rp(sudah.Nominal)}</span>`
+    : !siap ? '<span class="pill pill-gray">Lengkapi pengaturan</span>'
+    : P < (cfg.mulai || thisYm()) ? '<span class="pill pill-gray">Sebelum mulai dicatat</span>'
+    : dUntil > 0 ? `<span class="pill pill-warn">${dUntil} hari lagi</span>` : '<span class="pill pill-gray">Menunggu</span>';
+
+  // Kalender timesheet
+  const per = periodeTs(P, cfg), dates = tanggalPeriode(P, cfg);
+  const lead = (toDate(per.dari).getDay() + 6) % 7; // Senin = kolom pertama
+  const cells = Array(lead).fill('<span class="ts-day empty"></span>').concat(dates.map(ds => {
+    const d = toDate(ds), on = dr.days.has(ds), lib = namaLibur(ds, cfg), wk = isWeekend(d);
+    const cls = ['ts-day', on ? 'on' : '', lib ? 'merah' : wk ? 'wk' : '', ds === today() ? 'now' : '', ds === tgl ? 'payday' : ''].join(' ');
+    const title = `${HARI[d.getDay()]}, ${fmtDate(ds, true)}${lib ? ' • ' + lib : ''}${on ? ' • masuk kerja' : ' • tidak masuk'}`;
+    return `<button class="${cls}" onclick="tsToggle('${ds}')" title="${esc(title)}" aria-pressed="${on}" aria-label="${esc(title)}"><b>${d.getDate()}</b>${d.getDate() === 1 && cfg.cutoff ? `<small>${BULAN[d.getMonth()]}</small>` : ''}</button>`;
+  })).join('');
+
+  // Riwayat 12 bulan
+  const mulai = cfg.mulai || thisYm(), rows = [];
+  for (let i = 0, M = ymAdd(thisYm(), 1); i < 24 && M >= mulai; i++, M = ymAdd(M, -1)) rows.push(M);
+  const riwayat = rows.map(M => {
+    const ts = timesheet(M, cfg), t = findBy('Transaksi', gajiTrxId(M));
+    const st = t ? '<span class="pill pill-ok">Masuk</span>' : M < mulai ? '<span class="pill pill-gray">—</span>' : daysUntil(ts.tgl) > 0 ? '<span class="pill pill-warn">Terjadwal</span>' : '<span class="pill pill-gray">Menunggu</span>';
+    return `<tr class="${M === P ? 'sel' : ''}" style="cursor:pointer" onclick="gajiSetYm('${M}')"><td class="nw"><b>${fmtYm(M)}</b>${ts.tersimpan ? '' : '<small class="muted hide-m"> • default</small>'}</td>
+      <td class="r">${ts.hari}</td><td class="r hide-m nw">${rp(ts.upah)}</td><td class="r nw"><b>${rp(t ? t.Nominal : ts.total)}</b></td><td class="hide-m nw">${HARI[toDate(ts.tgl).getDay()].slice(0, 3)}, ${fmtDate(ts.tgl)}</td><td>${st}</td></tr>`;
+  }).join('');
+
+  // Tanggal merah tahun yang dilihat
+  const th = P.slice(0, 4);
+  const libs = Object.keys(LIBUR_NASIONAL).filter(k => k.startsWith(th)).map(k => ({ t: k, n: LIBUR_NASIONAL[k], j: 'Nasional' }))
+    .concat(cfg.cuti ? Object.keys(CUTI_BERSAMA).filter(k => k.startsWith(th)).map(k => ({ t: k, n: CUTI_BERSAMA[k], j: 'Cuti bersama' })) : [])
+    .concat(liburTambahan().filter(x => x.t.startsWith(th)).map(x => ({ t: x.t, n: x.n, j: 'Tambahan' })))
+    .sort((a, b) => a.t.localeCompare(b.t));
+
+  const opt = (v, l, cur) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${l}</option>`;
+  return `
+  ${siap ? '' : `<div class="callout" style="margin-bottom:16px"><i class="bi bi-info-circle"></i><div><b>Mulai di sini:</b> isi upah harian dan akun penerima gaji, lalu simpan. Gaji akan otomatis tercatat sebagai pemasukan pada tanggal gajian.</div></div>`}
+  <div class="grid g-2" style="margin-bottom:20px">
+    <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm"><i class="bi bi-cash-coin"></i></span><div><h3>Pengaturan Gaji</h3><p>Gaji = hari kerja × upah harian</p></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="field"><label class="lbl" for="gjHarian">Upah harian (daily rate)</label><div class="money-input"><input class="input" id="gjHarian" inputmode="numeric" autocomplete="off" placeholder="0" value="${fmtMoneyInput(cfg.harian)}" oninput="this.value=fmtMoneyInput(this.value)"></div></div>
+        <div class="grid g-2 pair-sm" style="margin:0;gap:12px">
+          <div class="field"><label class="lbl" for="gjPola">Hari kerja</label><select class="input" id="gjPola">${opt('5', 'Senin–Jumat', cfg.pola)}${opt('6', 'Senin–Sabtu', cfg.pola)}</select></div>
+          <div class="field"><label class="lbl" for="gjTgl">Tanggal gajian</label><input class="input" id="gjTgl" type="number" min="1" max="28" value="${cfg.tgl}"></div>
+        </div>
+        <div class="field"><label class="lbl" for="gjCutoff">Periode timesheet</label><select class="input" id="gjCutoff">${opt(0, 'Bulan kalender (tgl 1 – akhir bulan)', cfg.cutoff)}${[20, 25].map(c => opt(c, `Tgl ${c + 1} bulan lalu – tgl ${c} bulan ini`, cfg.cutoff)).join('')}</select></div>
+        <div class="field"><label class="lbl" for="gjAkun">Gaji masuk ke akun</label><select class="input" id="gjAkun"><option value="">Pilih akun…</option>${sourceOptions(false).map(o => opt(o.v, esc(o.l), cfg.akun)).join('')}</select></div>
+        <div class="field"><label class="lbl" for="gjMulai">Mulai dicatat otomatis</label><input class="input" id="gjMulai" type="month" value="${cfg.mulai || thisYm()}"></div>
+        <label class="check-row"><input type="checkbox" id="gjCuti" ${cfg.cuti ? 'checked' : ''}> Cuti bersama dihitung tanggal merah</label>
+        <button class="btn btn-primary" onclick="saveGajiCfg()"><i class="bi bi-check2"></i> Simpan pengaturan</button>
+      </div></div>
+    <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ok"><i class="bi bi-calendar2-check"></i></span><div><h3>Gaji ${fmtYm(P, true)}</h3><p>Periode ${fmtDate(per.dari)} – ${fmtDate(per.sampai)}</p></div></div>${status}</div>
+      <div class="gaji-sum"><span>${dr.days.size} hari</span><i class="bi bi-x"></i><span>${rp(dr.upah)}</span></div>
+      <div class="kv"><span>Total gaji</span><b class="big" id="tsTotal">${money(total)}</b></div>
+      <div class="kv"><span>Masuk ke</span><b>${cfg.akun ? esc(sourceName(cfg.akun)) : '—'}</b></div>
+      <div class="kv"><span>Tanggal gaji masuk</span><b>${HARI[toDate(tgl).getDay()]}, ${fmtDate(tgl, true)}</b></div>
+      ${alasan ? `<div class="callout gray" style="margin-top:10px"><i class="bi bi-arrow-left-circle"></i><div>${esc(alasan)}, jadi gaji dimajukan ke hari kerja sebelumnya.</div></div>` : ''}
+      ${dr.dirty ? '<div class="callout" style="margin-top:10px"><i class="bi bi-pencil"></i><div>Timesheet berubah — klik <b>Simpan timesheet</b>.</div></div>' : ''}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ink"><i class="bi bi-calendar3"></i></span><div><h3>Timesheet</h3><p>Ketuk tanggal untuk menandai masuk / tidak masuk kerja</p></div></div>
+      <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${fmtYm(P, true)}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
+    <div class="ts-grid">${['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(h => `<span class="ts-h">${h}</span>`).join('')}${cells}</div>
+    <div class="ts-legend"><span><i class="lg on"></i>Masuk kerja</span><span><i class="lg"></i>Tidak masuk</span><span><i class="lg merah"></i>Tanggal merah</span><span><i class="lg payday"></i>Gaji masuk</span></div>
+    <div class="ts-foot">
+      <div class="field" style="flex:1;min-width:180px"><label class="lbl" for="tsUpah">Upah harian bulan ini</label><div class="money-input"><input class="input" id="tsUpah" inputmode="numeric" autocomplete="off" value="${fmtMoneyInput(dr.upah)}" oninput="this.value=fmtMoneyInput(this.value); tsUpah(this.value)"></div></div>
+      <div class="actions-row" style="margin:0">
+        <button class="btn btn-ghost btn-sm" onclick="tsIsi('kosong')"><i class="bi bi-eraser"></i> Kosongkan</button>
+        <button class="btn btn-secondary btn-sm" onclick="tsIsi('default')"><i class="bi bi-magic"></i> Isi hari kerja</button>
+        <button class="btn btn-primary btn-sm" onclick="saveTimesheet()"><i class="bi bi-check2"></i> Simpan timesheet</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-1" style="margin:0">
+    <div class="card flush"><div class="card-head"><div><h3>Riwayat Gaji</h3><p>Klik baris untuk membuka timesheet bulan itu</p></div></div>
+      <div class="table-wrap" style="margin-top:12px"><table class="tbl tbl-gaji"><thead><tr><th>Bulan</th><th class="r">Hari</th><th class="r hide-m">Upah/hari</th><th class="r">Total</th><th class="hide-m">Tgl masuk</th><th>Status</th></tr></thead><tbody>${riwayat || '<tr><td colspan="6" class="muted">Belum ada data</td></tr>'}</tbody></table></div></div>
+    <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm" style="background:var(--danger-soft);color:var(--danger)"><i class="bi bi-calendar-x"></i></span><div><h3>Tanggal Merah ${th}</h3><p>Libur nasional SKB 3 Menteri + tambahan Anda</p></div></div></div>
+      <div class="libur-list">${libs.length ? libs.map(x => `<div class="libur-item"><b>${fmtDate(x.t)}</b><span>${esc(x.n)}<small>${x.j}</small></span>${x.j === 'Tambahan' ? `<button class="btn-icon danger" onclick="delLibur('${x.t}')" aria-label="Hapus"><i class="bi bi-x-lg"></i></button>` : ''}</div>`).join('') : '<p class="muted">Belum ada data libur untuk tahun ini — tambahkan di bawah.</p>'}</div>
+      <div class="grid g-2 pair-sm" style="margin:14px 0 10px;gap:10px"><input class="input" type="date" id="lbTgl" aria-label="Tanggal"><input class="input" id="lbNama" maxlength="40" placeholder="Keterangan" aria-label="Keterangan"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addLibur()"><i class="bi bi-plus-lg"></i> Tambah tanggal merah</button>
+    </div>
+  </div>`;
+}
+
 /* ───────────── HALAMAN: PENGATURAN ───────────── */
 function setSettingsTab(t) { S.settingsTab = t; if (S.page === 'pengaturan') renderPengaturan(); }
 
@@ -1980,6 +2215,7 @@ function renderPengaturan() {
   const menu = [
     ['akun', 'bi-wallet2', 'Akun & Dompet', S.data.Akun.length], ['kartu', 'bi-credit-card', 'Kartu Kredit', S.data.Kartu_Kredit.length],
     ['kategori', 'bi-tags', 'Kategori Transaksi', S.data.Kategori.length], ['kendaraan', 'bi-car-front', 'Kendaraan', S.data.Kendaraan.length],
+    ['gaji', 'bi-calendar-check', 'Timesheet & Gaji', ''],
     ['pengingat', 'bi-alarm', 'Pengingat & Profil', ''], ['tampilan', 'bi-circle-half', 'Tampilan', ''], ['penyimpanan', 'bi-cloud-check', 'Penyimpanan & Cadangan', ''], ['keamanan', 'bi-shield-lock', 'Keamanan & Login', '']
   ];
   let content = '';
@@ -2005,6 +2241,7 @@ function renderPengaturan() {
   else if (tab === 'kendaraan') content = listCard('Kendaraan', 'Data untuk pengingat pajak tahunan & STNK 5 tahunan', 'Kendaraan', S.data.Kendaraan, [
     { h: 'Kendaraan', f: r => `<div class="cell-main"><span class="ic-sq sm ic-ink"><i class="bi ${r.Jenis === 'Mobil' ? 'bi-car-front' : 'bi-scooter'}"></i></span><div><b>${esc(r.Nama)}</b><small>${esc(r.Nopol)}</small></div></div>` },
     { h: 'Pajak tahunan', m: 'hide-m', f: r => fmtDate(r.JatuhTempoTahunan) }, { h: 'STNK 5 thn', m: 'hide-m', f: r => fmtDate(r.JatuhTempo5Th) }, { h: 'Status', m: 'hide-m', f: statusPill }]);
+  else if (tab === 'gaji') content = renderGajiTab();
   else if (tab === 'pengingat') {
     const d = num(setting('pengingatDefault', 7));
     content = `<div class="grid g-2" style="margin:0">
@@ -2059,7 +2296,7 @@ function renderPengaturan() {
 
   setTimeout(() => { const f = document.getElementById('pwForm'); if (f) f.onsubmit = submitChangePassword; }, 0);
   $('#page-pengaturan').innerHTML = `
-    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Preferensi &amp; master data</span><h1>Pengaturan</h1><p>Kelola akun, kartu, kategori, kendaraan, jadwal pengingat, dan penyimpanan.</p></div></div>
+    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Preferensi &amp; master data</span><h1>Pengaturan</h1><p>Kelola akun, kartu, kategori, kendaraan, timesheet gaji, jadwal pengingat, dan penyimpanan.</p></div></div>
     <div class="grid g-1-2">
       <div class="card" style="padding:0"><div class="set-menu"><span class="eyebrow">Pengaturan umum</span>
         ${menu.map(([id, ic, l, c]) => `<button class="set-item ${tab === id ? 'on' : ''}" onclick="setSettingsTab('${id}')"><i class="bi ${ic}"></i> ${l}${c !== '' ? `<span class="cnt">${c}</span>` : ''}</button>`).join('')}

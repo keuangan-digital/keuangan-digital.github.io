@@ -617,3 +617,49 @@ textarea.input { min-height: 84px; resize: vertical; }
 .pw-wrap { position: relative; }
 .pw-wrap .input { padding-right: 48px; }
 .pw-wrap button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: transparent; color: var(--text-2); border-radius: 50%; }
+
+/* ── Timesheet & Gaji ── */
+.check-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+.check-row input { width: 18px; height: 18px; accent-color: var(--primary); }
+.gaji-sum { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.gaji-sum i { color: var(--text-2); }
+.ts-nav { display: flex; align-items: center; gap: 6px; }
+.ts-nav b { min-width: 120px; text-align: center; font-size: 14px; }
+.ts-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; margin-top: 14px; }
+.ts-h { font-size: 11px; font-weight: 700; color: var(--text-2); text-align: center; text-transform: uppercase; letter-spacing: .04em; padding-bottom: 2px; }
+.ts-day { position: relative; aspect-ratio: 1 / .82; min-height: 40px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-size: 14px; cursor: pointer; transition: background .12s, border-color .12s; }
+.ts-day small { font-size: 9.5px; font-weight: 600; color: var(--text-2); line-height: 1; }
+.ts-day.empty { border: 0; background: none; cursor: default; }
+.ts-day.wk { background: var(--surface-2); color: var(--text-2); }
+.ts-day.merah b { color: var(--danger); }
+.ts-day.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.ts-day.on.merah b { color: #fff; text-decoration: underline wavy rgba(255,255,255,.7); }
+.ts-day.on small { color: rgba(255,255,255,.85); }
+.ts-day.now { box-shadow: 0 0 0 2px var(--text) inset; }
+.ts-day.payday::after { content: ''; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 2px var(--surface); }
+.ts-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--text-2); }
+.ts-legend span { display: flex; align-items: center; gap: 6px; }
+.ts-legend .lg { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--border); background: var(--surface); }
+.ts-legend .lg.on { background: var(--primary); border-color: var(--primary); }
+.ts-legend .lg.merah { background: var(--danger-soft); border-color: var(--danger); }
+.ts-legend .lg.payday { background: var(--success); border-color: var(--success); border-radius: 50%; }
+.ts-foot { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.tbl tr.sel td { background: var(--primary-soft); }
+.g-1 { grid-template-columns: minmax(0,1fr); }
+.nw { white-space: nowrap; }
+.libur-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 28px; max-height: 340px; overflow: auto; margin-top: 4px; }
+.libur-item { display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.libur-item b { color: var(--danger-ink); font-variant-numeric: tabular-nums; }
+.libur-item span { display: flex; flex-direction: column; min-width: 0; }
+.libur-item small { font-size: 11px; color: var(--text-2); }
+@media (max-width: 560px) {
+  .ts-grid { gap: 4px; }
+  .ts-day { border-radius: 9px; font-size: 13px; min-height: 36px; }
+  .ts-nav b { min-width: 96px; font-size: 13px; }
+  .ts-foot .actions-row { width: 100%; }
+  .ts-foot .actions-row .btn { flex: 1; }
+  .tbl th.hide-m, .tbl td.hide-m, .tbl small.hide-m { display: none; }
+  .tbl-gaji th, .tbl-gaji td { padding-left: 10px; padding-right: 10px; }
+  .tbl-gaji th:first-child, .tbl-gaji td:first-child { padding-left: 18px; }
+}
