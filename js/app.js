@@ -1977,7 +1977,8 @@ function renderLaporan() {
 }
 
 /* ───────────── TIMESHEET & GAJI (daily rate, roster) ─────────────
-   Gaji periode P (tgl 1 – akhir bulan) = hari kerja × upah harian + jam lembur × tarif lembur.
+   Gaji periode P (tgl 1 – akhir bulan) = (total jam kerja ÷ jam normal) × upah harian.
+   Jam lembur ikut total jam (mis. 170 jam ÷ 12 = 14,17 hari kerja).
    Dibayar tgl 25 bulan berikutnya (bisa diatur); bila Sabtu/Minggu/tanggal merah → mundur ke
    hari kerja sebelumnya. Data di tab Pengaturan (tanpa ubah backend): gaji* = konfigurasi,
    ts_YYYY-MM = {d:{tanggal: jam}, u?: upah} per periode, tanggalMerahTambahan = libur tambahan. */
@@ -2054,14 +2055,13 @@ function tanggalPeriode(P) {
   return out;
 }
 function defaultHariKerja(P, cfg) { const o = {}; tanggalPeriode(P).forEach(ds => { if (isPolaKerja(ds, cfg)) o[ds] = cfg.jam; }); return o; }
-function tarifLembur(upah, cfg, ovr) { return num(ovr) > 0 ? num(ovr) : cfg.lembur > 0 ? cfg.lembur : Math.round(upah / cfg.jam); }
 /** Hitung gaji dari peta {tanggal: jam} */
 function hitungGaji(days, upah, cfg) {
   const ds = Object.keys(days), hari = ds.length;
   const jam = ds.reduce((s, k) => s + num(days[k]), 0);
   const jamLembur = ds.reduce((s, k) => s + Math.max(0, num(days[k]) - cfg.jam), 0);
-  const tarif = tarifLembur(upah, cfg), pokok = Math.round(hari * upah), lembur = Math.round(jamLembur * tarif);
-  return { hari, jam, jamLembur, tarif, pokok, lembur, total: pokok + lembur };
+  const setara = jam / cfg.jam; // hari kerja setara
+  return { hari, jam, jamLembur, setara, total: Math.round(jam * upah / cfg.jam) };
 }
 /** Timesheet periode P: tersimpan (ts_P) atau bawaan dari pola kerja */
 function timesheet(P, cfg) {
@@ -2074,10 +2074,11 @@ function timesheet(P, cfg) {
   const upah = sv && num(sv.u) > 0 ? num(sv.u) : cfg.harian;
   return Object.assign({ P, days, upah, tersimpan: !!sv, tgl: tglGajian(P, cfg) }, hitungGaji(days, upah, cfg));
 }
+function fmtHari(x) { return (Math.round(num(x) * 100) / 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }); }
 function gajiTrxId(P) { return `TRX-GJ-${P}`; }
 function katGaji() { const c = cats('Pemasukan'); const g = c.find(k => k.Nama === 'Gaji') || c[0]; return g ? g.ID : ''; }
 function gajiTrxRec(ts, cfg, ex) {
-  const cat = `Timesheet ${fmtYm(ts.P, true)}: ${ts.hari} hari × ${rp(ts.upah)}` + (ts.jamLembur ? ` + lembur ${ts.jamLembur} jam × ${rp(ts.tarif)}` : '');
+  const cat = `Timesheet ${fmtYm(ts.P, true)}: ${ts.jam} jam ÷ ${cfg.jam} = ${fmtHari(ts.setara)} hari × ${rp(ts.upah)}` + (ts.jamLembur ? ` (termasuk lembur ${ts.jamLembur} jam)` : '');
   return { ID: gajiTrxId(ts.P), Tanggal: ts.tgl, Jenis: 'Pemasukan', Kategori: ex ? ex.Kategori : katGaji(), Keterangan: `Gaji periode ${fmtYm(ts.P, true)}`,
     Nominal: ts.total, SumberDana: ex ? ex.SumberDana : cfg.akun, Referensi: 'TIMESHEET', Catatan: cat, Bukti: ex ? ex.Bukti : '',
     Dibuat: ex ? ex.Dibuat : new Date().toISOString(), Diubah: ex ? new Date().toISOString() : '' };
@@ -2135,7 +2136,7 @@ function saveGajiCfg() {
   if (pola === 'roster' && !v('gjAnchor')) { toast('Isi tanggal hari pertama on duty', 'error'); return; }
   const kv = { gajiHarian: harian, gajiAkun: akunId, gajiTanggal: Math.min(28, Math.max(1, num(v('gjTgl')) || 25)), gajiPola: pola,
     gajiRosterOn: Math.max(1, num(v('gjOn')) || 14), gajiRosterOff: Math.max(0, num(v('gjOff'))), gajiRosterMulai: v('gjAnchor'),
-    gajiJamNormal: Math.min(24, Math.max(1, num(v('gjJam')) || 12)), gajiLemburJam: parseMoney(v('gjLembur')), gajiBayarBulan: v('gjBayar'),
+    gajiJamNormal: Math.min(24, Math.max(1, num(v('gjJam')) || 12)), gajiBayarBulan: v('gjBayar'),
     gajiMulai: v('gjMulai') || thisYm(), gajiCutiBersama: $('#gjCuti').checked ? '1' : '0' };
   S.tsDraft = null;
   commit(Object.keys(kv).map(k => up('Pengaturan', { Kunci: k, Nilai: String(kv[k]) })), 'Pengaturan gaji disimpan');
@@ -2188,7 +2189,7 @@ function renderGajiTab() {
     const ts = timesheet(M, cfg), t = findBy('Transaksi', gajiTrxId(M));
     const st = t ? '<span class="pill pill-ok">Masuk</span>' : daysUntil(periodeTs(M).sampai) >= 0 ? '<span class="pill pill-gray">Berjalan</span>' : daysUntil(ts.tgl) > 0 ? '<span class="pill pill-warn">Terjadwal</span>' : '<span class="pill pill-gray">Menunggu</span>';
     return `<tr class="${M === P ? 'sel' : ''}" style="cursor:pointer" onclick="gajiSetYm('${M}')"><td class="nw"><b>${fmtYm(M)}</b>${ts.tersimpan ? '' : '<small class="muted hide-m"> • bawaan</small>'}</td>
-      <td class="r">${ts.hari}</td><td class="r hide-m">${ts.jamLembur ? ts.jamLembur + ' jam' : '—'}</td><td class="r nw"><b>${rp(t ? t.Nominal : ts.total)}</b></td><td class="hide-m nw">${HARI[toDate(ts.tgl).getDay()].slice(0, 3)}, ${fmtDate(ts.tgl)}</td><td>${st}</td></tr>`;
+      <td class="r nw">${ts.jam} jam</td><td class="r hide-m">${fmtHari(ts.setara)}</td><td class="r nw"><b>${rp(t ? t.Nominal : ts.total)}</b></td><td class="hide-m nw">${HARI[toDate(ts.tgl).getDay()].slice(0, 3)}, ${fmtDate(ts.tgl)}</td><td>${st}</td></tr>`;
   }).join('');
 
   // Tanggal merah tahun yang dilihat (dipakai untuk memajukan tanggal gajian)
@@ -2203,14 +2204,11 @@ function renderGajiTab() {
   return `
   ${siap ? '' : `<div class="callout" style="margin-bottom:16px"><i class="bi bi-info-circle"></i><div><b>Mulai di sini:</b> isi upah harian, roster, dan akun penerima gaji, lalu simpan. Gaji otomatis tercatat sebagai pemasukan pada tanggal gajian.</div></div>`}
   <div class="grid g-2" style="margin-bottom:20px">
-    <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm"><i class="bi bi-cash-coin"></i></span><div><h3>Pengaturan Gaji</h3><p>Gaji = hari kerja × upah harian + jam lembur × tarif lembur</p></div></div></div>
+    <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm"><i class="bi bi-cash-coin"></i></span><div><h3>Pengaturan Gaji</h3><p>Gaji = (total jam ÷ jam normal) × upah harian</p></div></div></div>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="field"><label class="lbl" for="gjHarian">Upah harian (daily rate)</label><div class="money-input"><input class="input" id="gjHarian" inputmode="numeric" autocomplete="off" placeholder="0" value="${fmtMoneyInput(cfg.harian)}" oninput="this.value=fmtMoneyInput(this.value)"></div></div>
-        <div class="grid g-2 pair-sm" style="margin:0;gap:12px">
-          <div class="field"><label class="lbl" for="gjJam">Jam kerja normal/hari</label><input class="input" id="gjJam" type="number" min="1" max="24" value="${cfg.jam}"></div>
-          <div class="field"><label class="lbl" for="gjLembur">Tarif lembur/jam</label><div class="money-input"><input class="input" id="gjLembur" inputmode="numeric" autocomplete="off" placeholder="${fmtMoneyInput(Math.round(cfg.harian / cfg.jam)) || 'otomatis'}" value="${cfg.lembur ? fmtMoneyInput(cfg.lembur) : ''}" oninput="this.value=fmtMoneyInput(this.value)"></div></div>
-        </div>
-        <p class="hint" style="margin:-4px 0 0">Tarif lembur kosong = upah harian ÷ jam normal.</p>
+        <div class="field"><label class="lbl" for="gjJam">Jam kerja normal/hari (pembagi)</label><input class="input" id="gjJam" type="number" min="1" max="24" value="${cfg.jam}"></div>
+        <p class="hint" style="margin:-4px 0 0">Lembur otomatis ikut dihitung: total jam ÷ jam normal = hari kerja setara.</p>
         <div class="field"><label class="lbl" for="gjPola">Pola kerja</label><select class="input" id="gjPola" onchange="gjPolaChange()">${opt('roster', 'Roster on/off (mis. 2-2)', cfg.pola)}${opt('5', 'Kantor Senin–Jumat', cfg.pola)}${opt('6', 'Kantor Senin–Sabtu', cfg.pola)}</select></div>
         <div class="grid g-2 pair-sm gj-roster" style="margin:0;gap:12px" ${ro}>
           <div class="field"><label class="lbl" for="gjOn">Hari on duty</label><input class="input" id="gjOn" type="number" min="1" max="90" value="${cfg.on}"></div>
@@ -2227,9 +2225,10 @@ function renderGajiTab() {
         <button class="btn btn-primary" onclick="saveGajiCfg()"><i class="bi bi-check2"></i> Simpan pengaturan</button>
       </div></div>
     <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ok"><i class="bi bi-calendar2-check"></i></span><div><h3>Timesheet ${fmtYm(P, true)}</h3><p>Periode ${fmtDate(per.dari)} – ${fmtDate(per.sampai)} • tutup buku ${fmtDate(per.sampai)}</p></div></div>${status}</div>
-      <div class="gaji-sum"><span>${g.hari} hari</span><span class="muted">•</span><span>${g.jam} jam</span>${g.jamLembur ? `<span class="pill pill-orange">lembur ${g.jamLembur} jam</span>` : ''}</div>
-      <div class="kv"><span>Upah pokok (${g.hari} × ${rp(dr.upah)})</span><b>${rp(g.pokok)}</b></div>
-      <div class="kv"><span>Lembur (${g.jamLembur} jam × ${rp(g.tarif)})</span><b>${rp(g.lembur)}</b></div>
+      <div class="gaji-sum"><span>${g.hari} hari masuk</span><span class="muted">•</span><span>${g.jam} jam</span>${g.jamLembur ? `<span class="pill pill-orange">lembur ${g.jamLembur} jam</span>` : ''}</div>
+      <div class="kv"><span>Total jam kerja</span><b>${g.jam} jam</b></div>
+      <div class="kv"><span>Hari kerja setara (${g.jam} ÷ ${cfg.jam})</span><b>${fmtHari(g.setara)} hari</b></div>
+      <div class="kv"><span>Upah harian</span><b>× ${rp(dr.upah)}</b></div>
       <div class="kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:10px"><span>Total gaji</span><b class="big">${money(sudah ? sudah.Nominal : g.total)}</b></div>
       <div class="kv"><span>Masuk ke</span><b>${cfg.akun ? esc(sourceName(cfg.akun)) : '—'}</b></div>
       <div class="kv"><span>Tanggal gaji masuk</span><b>${HARI[toDate(tgl).getDay()]}, ${fmtDate(tgl, true)}</b></div>
@@ -2256,7 +2255,7 @@ function renderGajiTab() {
 
   <div class="grid g-1" style="margin:0">
     <div class="card flush"><div class="card-head"><div><h3>Riwayat Gaji</h3><p>Per periode timesheet • klik baris untuk membuka kalendernya</p></div></div>
-      <div class="table-wrap" style="margin-top:12px"><table class="tbl tbl-gaji"><thead><tr><th>Periode</th><th class="r">Hari</th><th class="r hide-m">Lembur</th><th class="r">Total</th><th class="hide-m">Tgl masuk</th><th>Status</th></tr></thead><tbody>${riwayat || '<tr><td colspan="6" class="muted">Belum ada data</td></tr>'}</tbody></table></div></div>
+      <div class="table-wrap" style="margin-top:12px"><table class="tbl tbl-gaji"><thead><tr><th>Periode</th><th class="r">Total jam</th><th class="r hide-m">Hari setara</th><th class="r">Total</th><th class="hide-m">Tgl masuk</th><th>Status</th></tr></thead><tbody>${riwayat || '<tr><td colspan="6" class="muted">Belum ada data</td></tr>'}</tbody></table></div></div>
     <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm" style="background:var(--danger-soft);color:var(--danger)"><i class="bi bi-calendar-x"></i></span><div><h3>Tanggal Merah ${th}</h3><p>Dipakai untuk memajukan tanggal gajian • libur nasional SKB 3 Menteri + tambahan Anda</p></div></div></div>
       <div class="libur-list">${libs.length ? libs.map(x => `<div class="libur-item"><b>${fmtDate(x.t)}</b><span>${esc(x.n)}<small>${x.j}</small></span>${x.j === 'Tambahan' ? `<button class="btn-icon danger" onclick="delLibur('${x.t}')" aria-label="Hapus"><i class="bi bi-x-lg"></i></button>` : ''}</div>`).join('') : '<p class="muted">Belum ada data libur untuk tahun ini — tambahkan di bawah.</p>'}</div>
       <div class="grid g-2 pair-sm" style="margin:14px 0 10px;gap:10px"><input class="input" type="date" id="lbTgl" aria-label="Tanggal"><input class="input" id="lbNama" maxlength="40" placeholder="Keterangan" aria-label="Keterangan"></div>
