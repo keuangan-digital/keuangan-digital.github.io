@@ -5,11 +5,11 @@
    ============================================================ */
 .cc-skin-mandiri-jcb {
   background-image: url("../img/card-mandiri-jcb.webp");
-  background-color: transparent;
-  --cc-num: #7A5A22; --cc-name: #FFF8E6; --cc-limit: #6E5120;
-  --cc-shadow: 0 1px 0 rgba(255,255,255,.55);
-  --cc-name-shadow: 0 1px 1px rgba(60,40,10,.45);
-  --cc-pos-num: 53.5%; --cc-pos-limit-top: 64.5%; --cc-pos-limit-left: 37.5%; --cc-pos-name: 82.5%; --cc-pos-x: 8.2%;
+  background-color: #fff;
+  --cc-num: #A47A26; --cc-name: #FFF8E6; --cc-limit: #8A6620;
+  --cc-shadow: 0 1px 0 rgba(255,255,255,.7);
+  --cc-name-shadow: 0 1px 2px rgba(70,45,5,.55);
+  --cc-pos-num: 50.6%; --cc-pos-limit-top: 61.2%; --cc-pos-limit-left: 8.6%; --cc-pos-name: 80.5%; --cc-pos-x: 8.6%;
 }
 .cc-skin-mandiri-pertamina {
   background-image: url("../img/card-mandiri-pertamina.webp");
