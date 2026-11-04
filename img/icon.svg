@@ -5,14 +5,14 @@
       <stop offset="1" stop-color="#FF7A00"/>
     </linearGradient>
     <linearGradient id="dompet" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0A4A8C"/>
-      <stop offset="1" stop-color="#003D79"/>
+      <stop offset="0" stop-color="#1A8FD6"/>
+      <stop offset="1" stop-color="#0068A8"/>
     </linearGradient>
     <radialGradient id="cahaya" cx="0.34" cy="0.30" r="0.72">
       <stop offset="0" stop-color="#FF7A00"/>
       <stop offset="0.38" stop-color="#FF7A00" stop-opacity=".92"/>
       <stop offset="0.72" stop-color="#FF7A00" stop-opacity=".35"/>
-      <stop offset="1" stop-color="#0A4A8C" stop-opacity="0"/>
+      <stop offset="1" stop-color="#1A8FD6" stop-opacity="0"/>
     </radialGradient>
     <filter id="bayang" x="-20%" y="-20%" width="140%" height="160%">
       <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#121212" flood-opacity=".28"/>
@@ -26,8 +26,8 @@
     <rect x="56" y="178" width="400" height="262" rx="70" fill="url(#cahaya)"/>
   </g>
   <!-- kancing -->
-  <circle cx="404" cy="309" r="22" fill="#8FA6C4"/>
-  <circle cx="404" cy="305" r="22" fill="#B7C6DA"/>
+  <circle cx="404" cy="309" r="22" fill="#9CC6E4"/>
+  <circle cx="404" cy="305" r="22" fill="#C9E2F3"/>
   <!-- tulisan -->
   <text x="88" y="330" font-family="Plus Jakarta Sans, Helvetica, Arial, sans-serif" font-size="78" font-weight="800" letter-spacing="-2" fill="#FFFFFF">KenTal</text>
 </svg>
