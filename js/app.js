@@ -553,7 +553,7 @@ function navigateTo(page) {
   if (page === 'lainnya') { openMore(); return; }
   if (!PAGE_TITLES[page]) page = 'dashboard';
   S.page = page;
-  if (page === 'pengaturan') S.setMenu = true;
+  closeSetDropdown();
   $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
   const navKey = page === 'kartuDetail' ? 'kartu' : page;
   $$('[data-nav]').forEach(b => {
@@ -2280,18 +2280,39 @@ function renderGajiTab() {
 
 
 /* ───────────── HALAMAN: PENGATURAN ───────────── */
-/** Menu pengaturan hanya tampil saat "Pengaturan" diklik di navbar, lalu tersembunyi setelah salah satu menu dipilih */
-function setSettingsTab(t) { S.settingsTab = t; S.setMenu = false; if (S.page === 'pengaturan') { renderPengaturan(); window.scrollTo(0, 0); } }
-function openSetMenu() { S.setMenu = true; renderPengaturan(); window.scrollTo(0, 0); }
+/* ── Pengaturan sebagai dropdown di navbar (sidebar & menu Lainnya di HP) ── */
+function setMenuItems() {
+  return [
+    ['akun', 'bi-wallet2', 'Akun & Dompet', S.data.Akun.length], ['kartu', 'bi-credit-card', 'Kartu Kredit', S.data.Kartu_Kredit.length],
+    ['kategori', 'bi-tags', 'Kategori Transaksi', S.data.Kategori.length], ['kendaraan', 'bi-car-front', 'Kendaraan', S.data.Kendaraan.length],
+    ['gaji', 'bi-calendar-check', 'Timesheet & Gaji', ''], ['pengingat', 'bi-alarm', 'Pengingat & Profil', ''], ['tampilan', 'bi-circle-half', 'Tampilan', ''],
+    ['penyimpanan', 'bi-cloud-check', 'Penyimpanan & Cadangan', ''], ['keamanan', 'bi-shield-lock', 'Keamanan & Login', '']
+  ];
+}
+function renderSetDropdown(where) {
+  const box = where === 'sheet' ? $('#sheetSetList') : $('#setDropdown');
+  const cur = S.page === 'pengaturan' ? S.settingsTab : '';
+  box.innerHTML = setMenuItems().map(([id, ic, l, c]) => `<button class="${where === 'sheet' ? 'sheet-subitem' : 'nav-subitem'} ${cur === id ? 'on' : ''}" onclick="pickSetting('${id}')" title="${l}"><i class="bi ${ic}"></i><span>${l}</span>${c !== '' ? `<b class="sub-cnt">${c}</b>` : ''}</button>`).join('');
+}
+function toggleSetDropdown(where) {
+  const box = where === 'sheet' ? $('#sheetSetList') : $('#setDropdown'), btn = where === 'sheet' ? $('#sheetSetBtn') : $('#setDdBtn');
+  const open = box.hidden;
+  if (open) renderSetDropdown(where);
+  box.hidden = !open; btn.classList.toggle('dd-open', open); btn.setAttribute('aria-expanded', open);
+  // sidebar diciutkan / mode ikon di tablet: buka sidebar agar label terlihat
+  if (open && where === 'side' && document.body.classList.contains('sb-collapsed')) box.classList.add('icons');
+  else box.classList.remove('icons');
+}
+function closeSetDropdown() {
+  [['#setDropdown', '#setDdBtn'], ['#sheetSetList', '#sheetSetBtn']].forEach(([b, t]) => { const box = $(b), btn = $(t); if (box) box.hidden = true; if (btn) { btn.classList.remove('dd-open'); btn.setAttribute('aria-expanded', 'false'); } });
+}
+/** Pilih menu pengaturan: buka halamannya lalu dropdown otomatis tertutup */
+function pickSetting(id) { closeAllOverlays(); S.settingsTab = id; navigateTo('pengaturan'); }
+function setSettingsTab(t) { S.settingsTab = t; if (S.page === 'pengaturan') { renderPengaturan(); window.scrollTo(0, 0); } }
 
 function renderPengaturan() {
   const tab = S.settingsTab;
-  const menu = [
-    ['akun', 'bi-wallet2', 'Akun & Dompet', S.data.Akun.length], ['kartu', 'bi-credit-card', 'Kartu Kredit', S.data.Kartu_Kredit.length],
-    ['kategori', 'bi-tags', 'Kategori Transaksi', S.data.Kategori.length], ['kendaraan', 'bi-car-front', 'Kendaraan', S.data.Kendaraan.length],
-    ['gaji', 'bi-calendar-check', 'Timesheet & Gaji', ''],
-    ['pengingat', 'bi-alarm', 'Pengingat & Profil', ''], ['tampilan', 'bi-circle-half', 'Tampilan', ''], ['penyimpanan', 'bi-cloud-check', 'Penyimpanan & Cadangan', ''], ['keamanan', 'bi-shield-lock', 'Keamanan & Login', '']
-  ];
+  const menu = setMenuItems();
   let content = '';
   const listCard = (title, sub, sheet, rows, cols) => `<div class="card flush">
     <div class="card-head"><div><h3>${title}</h3><p>${sub}</p></div><button class="btn btn-primary btn-sm" onclick="openCrud('${sheet}')"><i class="bi bi-plus-lg"></i> Tambah</button></div>
@@ -2370,13 +2391,8 @@ function renderPengaturan() {
 
   setTimeout(() => { const f = document.getElementById('pwForm'); if (f) f.onsubmit = submitChangePassword; }, 0);
   const cur = menu.find(x => x[0] === tab) || menu[0];
-  $('#page-pengaturan').innerHTML = S.setMenu ? `
-    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Preferensi &amp; master data</span><h1>Pengaturan</h1><p>Pilih menu pengaturan yang ingin dibuka.</p></div></div>
-    <div class="card set-menu-card" style="padding:0"><div class="set-menu"><span class="eyebrow">Pengaturan umum</span>
-      ${menu.map(([id, ic, l, c]) => `<button class="set-item ${tab === id ? 'on' : ''}" onclick="setSettingsTab('${id}')"><i class="bi ${ic}"></i> ${l}${c !== '' ? `<span class="cnt">${c}</span>` : ''}<i class="bi bi-chevron-right set-go"></i></button>`).join('')}
-    </div></div>` : `
-    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Pengaturan</span><h1>${cur[2]}</h1></div>
-      <div class="head-actions"><button class="btn btn-secondary" onclick="openSetMenu()"><i class="bi bi-grid"></i> Menu pengaturan</button></div></div>
+  $('#page-pengaturan').innerHTML = `
+    <div class="page-head"><div><span class="eyebrow"><i class="bi ${cur[1]}"></i> Pengaturan</span><h1>${cur[2]}</h1></div></div>
     <div>${content}</div>`;
 }
 
@@ -2563,7 +2579,7 @@ async function submitChangePassword(e) {
 
 /* ───────────── BOOT ───────────── */
 function bindGlobal() {
-  $$('[data-nav]').forEach(b => b.addEventListener('click', () => { closeAllOverlays(); navigateTo(b.dataset.nav); }));
+  $$('[data-nav]').forEach(b => b.addEventListener('click', () => { if (b.id === 'setDdBtn') { toggleSetDropdown('side'); return; } closeAllOverlays(); navigateTo(b.dataset.nav); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllOverlays(); });
   window.addEventListener('online', flushQueue);
   window.addEventListener('resize', debounce(() => { if (S.page === 'transaksi') renderTrxResults(); }, 300));

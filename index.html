@@ -26,7 +26,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=20261124b">
+  <link rel="stylesheet" href="css/style.css?v=20261124c">
   <link rel="stylesheet" href="css/card-art.css?v=20261104b">
 </head>
 <body>
@@ -48,7 +48,8 @@
         <button class="nav-item" data-nav="kartu"><i class="bi bi-credit-card-2-front"></i><span>Kartu Kredit</span></button>
         <button class="nav-item" data-nav="tagihan"><i class="bi bi-bell"></i><span>Tagihan &amp; Pengingat</span><b class="nav-badge" data-badge="reminder" hidden>0</b></button>
         <button class="nav-item" data-nav="laporan"><i class="bi bi-bar-chart-line"></i><span>Laporan</span></button>
-        <button class="nav-item" data-nav="pengaturan"><i class="bi bi-gear"></i><span>Pengaturan</span></button>
+        <button class="nav-item nav-dd" data-nav="pengaturan" id="setDdBtn" aria-expanded="false" aria-controls="setDropdown"><i class="bi bi-gear"></i><span>Pengaturan</span><i class="bi bi-chevron-down dd-caret"></i></button>
+        <div class="nav-sub" id="setDropdown" hidden></div>
       </nav>
       <div class="side-foot">
         <button class="nav-item collapse-btn" onclick="toggleSidebar()" aria-label="Ciutkan menu">
@@ -134,7 +135,8 @@
     <div class="sheet-grip"></div>
     <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('kartu')"><i class="bi bi-credit-card-2-front"></i> Kartu Kredit</button>
     <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('laporan')"><i class="bi bi-bar-chart-line"></i> Laporan</button>
-    <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('pengaturan')"><i class="bi bi-gear"></i> Pengaturan</button>
+    <button class="sheet-item" id="sheetSetBtn" onclick="toggleSetDropdown('sheet')" aria-expanded="false"><i class="bi bi-gear"></i> Pengaturan<i class="bi bi-chevron-down dd-caret"></i></button>
+    <div class="sheet-sub" id="sheetSetList" hidden></div>
     <button class="sheet-item" onclick="closeAllOverlays(); logoutDevice()"><i class="bi bi-box-arrow-right"></i> Keluar</button>
   </div>
 
@@ -155,6 +157,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js?v=20261104"></script>
-  <script src="js/app.js?v=20261124b"></script>
+  <script src="js/app.js?v=20261124c"></script>
 </body>
 </html>
