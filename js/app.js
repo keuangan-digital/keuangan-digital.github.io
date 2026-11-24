@@ -552,6 +552,7 @@ function navigateTo(page) {
   if (page === 'lainnya') { openMore(); return; }
   if (!PAGE_TITLES[page]) page = 'dashboard';
   S.page = page;
+  if (page === 'pengaturan') S.setMenu = true;
   $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
   const navKey = page === 'kartuDetail' ? 'kartu' : page;
   $$('[data-nav]').forEach(b => {
@@ -2266,7 +2267,9 @@ function renderGajiTab() {
 
 
 /* ───────────── HALAMAN: PENGATURAN ───────────── */
-function setSettingsTab(t) { S.settingsTab = t; if (S.page === 'pengaturan') renderPengaturan(); }
+/** Menu pengaturan hanya tampil saat "Pengaturan" diklik di navbar, lalu tersembunyi setelah salah satu menu dipilih */
+function setSettingsTab(t) { S.settingsTab = t; S.setMenu = false; if (S.page === 'pengaturan') { renderPengaturan(); window.scrollTo(0, 0); } }
+function openSetMenu() { S.setMenu = true; renderPengaturan(); window.scrollTo(0, 0); }
 
 function renderPengaturan() {
   const tab = S.settingsTab;
@@ -2353,14 +2356,15 @@ function renderPengaturan() {
   }
 
   setTimeout(() => { const f = document.getElementById('pwForm'); if (f) f.onsubmit = submitChangePassword; }, 0);
-  $('#page-pengaturan').innerHTML = `
-    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Preferensi &amp; master data</span><h1>Pengaturan</h1><p>Kelola akun, kartu, kategori, kendaraan, timesheet gaji, jadwal pengingat, dan penyimpanan.</p></div></div>
-    <div class="grid g-1-2">
-      <div class="card" style="padding:0"><div class="set-menu"><span class="eyebrow">Pengaturan umum</span>
-        ${menu.map(([id, ic, l, c]) => `<button class="set-item ${tab === id ? 'on' : ''}" onclick="setSettingsTab('${id}')"><i class="bi ${ic}"></i> ${l}${c !== '' ? `<span class="cnt">${c}</span>` : ''}</button>`).join('')}
-      </div></div>
-      <div>${content}</div>
-    </div>`;
+  const cur = menu.find(x => x[0] === tab) || menu[0];
+  $('#page-pengaturan').innerHTML = S.setMenu ? `
+    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Preferensi &amp; master data</span><h1>Pengaturan</h1><p>Pilih menu pengaturan yang ingin dibuka.</p></div></div>
+    <div class="card set-menu-card" style="padding:0"><div class="set-menu"><span class="eyebrow">Pengaturan umum</span>
+      ${menu.map(([id, ic, l, c]) => `<button class="set-item ${tab === id ? 'on' : ''}" onclick="setSettingsTab('${id}')"><i class="bi ${ic}"></i> ${l}${c !== '' ? `<span class="cnt">${c}</span>` : ''}<i class="bi bi-chevron-right set-go"></i></button>`).join('')}
+    </div></div>` : `
+    <div class="page-head"><div><span class="eyebrow"><i class="bi bi-gear"></i> Pengaturan</span><h1>${cur[2]}</h1></div>
+      <div class="head-actions"><button class="btn btn-secondary" onclick="openSetMenu()"><i class="bi bi-grid"></i> Menu pengaturan</button></div></div>
+    <div>${content}</div>`;
 }
 
 /* ───────────── EKSPOR (pustaka dimuat saat dibutuhkan saja) ───────────── */

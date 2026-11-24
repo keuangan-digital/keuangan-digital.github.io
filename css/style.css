@@ -676,3 +676,9 @@ textarea.input { min-height: 84px; resize: vertical; }
   .tbl-gaji th, .tbl-gaji td { padding-left: 10px; padding-right: 10px; }
   .tbl-gaji th:first-child, .tbl-gaji td:first-child { padding-left: 18px; }
 }
+
+/* Menu pengaturan (tampil sendiri, tersembunyi setelah memilih) */
+.set-menu-card { max-width: 560px; }
+.set-item .set-go { margin-left: 8px; font-size: 13px; opacity: .45; }
+.set-item .cnt + .set-go { margin-left: 8px; }
+.set-item:not(:has(.cnt)) .set-go { margin-left: auto; }
