@@ -2292,17 +2292,31 @@ function setMenuItems() {
 function renderSetDropdown(where) {
   const box = where === 'sheet' ? $('#sheetSetList') : $('#setDropdown');
   const cur = S.page === 'pengaturan' ? S.settingsTab : '';
-  box.innerHTML = setMenuItems().map(([id, ic, l, c]) => `<button class="${where === 'sheet' ? 'sheet-subitem' : 'nav-subitem'} ${cur === id ? 'on' : ''}" onclick="pickSetting('${id}')" title="${l}"><i class="bi ${ic}"></i><span>${l}</span>${c !== '' ? `<b class="sub-cnt">${c}</b>` : ''}</button>`).join('');
+  box.innerHTML = (where === 'sheet' ? '' : '<div class="set-pop-head"><i class="bi bi-gear"></i> Pengaturan</div>') + setMenuItems().map(([id, ic, l, c]) => `<button class="${where === 'sheet' ? 'sheet-subitem' : 'nav-subitem'} ${cur === id ? 'on' : ''}" onclick="pickSetting('${id}')" title="${l}"><i class="bi ${ic}"></i><span>${l}</span>${c !== '' ? `<b class="sub-cnt">${c}</b>` : ''}</button>`).join('');
 }
 function toggleSetDropdown(where) {
   const box = where === 'sheet' ? $('#sheetSetList') : $('#setDropdown'), btn = where === 'sheet' ? $('#sheetSetBtn') : $('#setDdBtn');
   const open = box.hidden;
   if (open) renderSetDropdown(where);
   box.hidden = !open; btn.classList.toggle('dd-open', open); btn.setAttribute('aria-expanded', open);
-  // sidebar diciutkan / mode ikon di tablet: buka sidebar agar label terlihat
-  if (open && where === 'side' && document.body.classList.contains('sb-collapsed')) box.classList.add('icons');
-  else box.classList.remove('icons');
+  if (open && where === 'side') posSetPop();
 }
+/** Panel badge pengaturan melayang di luar navbar, sejajar tombol Pengaturan */
+function posSetPop() {
+  const box = $('#setDropdown'), btn = $('#setDdBtn');
+  if (box.parentElement !== document.body) document.body.appendChild(box);
+  const r = btn.getBoundingClientRect(), side = $('#sidebar').getBoundingClientRect();
+  box.style.left = (side.right + 12) + 'px';
+  const h = box.offsetHeight, top = Math.max(12, Math.min(r.top - 8, window.innerHeight - h - 12));
+  box.style.top = top + 'px';
+  box.style.setProperty('--arrow-y', Math.max(18, Math.min(h - 18, r.top + r.height / 2 - top)) + 'px');
+}
+document.addEventListener('click', e => {
+  const box = $('#setDropdown');
+  if (box && !box.hidden && !box.contains(e.target) && !e.target.closest('#setDdBtn')) closeSetDropdown();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetDropdown(); });
+window.addEventListener('resize', () => { const box = $('#setDropdown'); if (box && !box.hidden) posSetPop(); });
 function closeSetDropdown() {
   [['#setDropdown', '#setDdBtn'], ['#sheetSetList', '#sheetSetBtn']].forEach(([b, t]) => { const box = $(b), btn = $(t); if (box) box.hidden = true; if (btn) { btn.classList.remove('dd-open'); btn.setAttribute('aria-expanded', 'false'); } });
 }
