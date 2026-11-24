@@ -682,3 +682,15 @@ textarea.input { min-height: 84px; resize: vertical; }
 .set-item .set-go { margin-left: 8px; font-size: 13px; opacity: .45; }
 .set-item .cnt + .set-go { margin-left: 8px; }
 .set-item:not(:has(.cnt)) .set-go { margin-left: auto; }
+
+/* Kalender timesheet 2 bulan */
+.ts-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-top: 6px; }
+.ts-month-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ts-month-head b { font-size: 15px; }
+.ts-month-head span { font-size: 12px; color: var(--text-2); }
+.ts-month-head em { font-style: normal; color: var(--primary-ink, #B85400); font-weight: 600; }
+.ts-months .ts-grid { gap: 5px; margin-top: 10px; }
+.ts-months .ts-day { height: 46px; border-radius: 10px; font-size: 13px; }
+.ts-months .ts-day small { font-size: 9.5px; }
+@media (max-width: 1100px) { .ts-months { grid-template-columns: minmax(0, 1fr); gap: 22px; } }
+@media (max-width: 560px) { .ts-months .ts-grid { gap: 4px; } .ts-months .ts-day { height: 42px; border-radius: 9px; } }

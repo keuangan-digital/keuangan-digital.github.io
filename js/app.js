@@ -39,7 +39,8 @@ const S = {
   kartuDetail: { id: null, tab: 'tagihan' },
   storageInfo: null,
   gajiYm: null,
-  tsDraft: null
+  tsDrafts: {},
+  tsSel: null
 };
 
 function emptyData() {
@@ -2097,36 +2098,43 @@ function gajiOps(notes) {
 }
 
 // ── UI ──
-function gajiSetYm(P) { S.gajiYm = P; S.tsDraft = null; renderPengaturan(); }
-function tsDraft() {
-  const P = S.gajiYm || thisYm();
-  if (!S.tsDraft || S.tsDraft.P !== P) { const ts = timesheet(P); S.tsDraft = { P, days: Object.assign({}, ts.days), upah: ts.upah, sel: null, dirty: false }; }
-  return S.tsDraft;
+function gajiSetYm(P) { S.gajiYm = P; S.tsDrafts = {}; S.tsSel = null; renderPengaturan(); }
+/** Draf timesheet per bulan (kalender menampilkan bulan terpilih + bulan berikutnya) */
+function tsDraft(P) {
+  P = P || S.gajiYm || thisYm(); S.tsDrafts = S.tsDrafts || {};
+  if (!S.tsDrafts[P]) { const ts = timesheet(P); S.tsDrafts[P] = { P, days: Object.assign({}, ts.days), upah: ts.upah, dirty: false }; }
+  return S.tsDrafts[P];
 }
+function tsBulanTampil() { const P = S.gajiYm || thisYm(); return [P, ymAdd(P, 1)]; }
 /** Ketuk tanggal: belum masuk → tandai masuk (jam normal) & pilih; sudah masuk → pilih untuk ubah jam */
 function tsTap(ds) {
-  const d = tsDraft();
+  const d = tsDraft(ds.slice(0, 7));
   if (!(ds in d.days)) { d.days[ds] = gajiCfg().jam; d.dirty = true; }
-  d.sel = ds; renderPengaturan();
+  S.tsSel = ds; renderPengaturan();
 }
-function tsJam(v) { const d = tsDraft(); if (!d.sel) return; d.days[d.sel] = Math.min(24, Math.max(1, Math.round(num(v)))); d.dirty = true; renderPengaturan(); }
-function tsOff() { const d = tsDraft(); if (!d.sel) return; delete d.days[d.sel]; d.sel = null; d.dirty = true; renderPengaturan(); }
-function tsTutup() { const d = tsDraft(); d.sel = null; renderPengaturan(); }
+function tsJam(v) { const ds = S.tsSel; if (!ds) return; const d = tsDraft(ds.slice(0, 7)); d.days[ds] = Math.min(24, Math.max(1, Math.round(num(v)))); d.dirty = true; renderPengaturan(); }
+function tsOff() { const ds = S.tsSel; if (!ds) return; const d = tsDraft(ds.slice(0, 7)); delete d.days[ds]; S.tsSel = null; d.dirty = true; renderPengaturan(); }
+function tsTutup() { S.tsSel = null; renderPengaturan(); }
 function tsIsi(mode) {
-  const d = tsDraft(), cfg = gajiCfg();
-  d.days = mode === 'kosong' ? {} : defaultHariKerja(d.P, cfg); d.sel = null; d.dirty = true; renderPengaturan();
+  const cfg = gajiCfg();
+  tsBulanTampil().forEach(P => { const d = tsDraft(P); d.days = mode === 'kosong' ? {} : defaultHariKerja(P, cfg); d.dirty = true; });
+  S.tsSel = null; renderPengaturan();
 }
 function tsUpah(v) { const d = tsDraft(); d.upah = parseMoney(v); d.dirty = true; }
 function saveTimesheet() {
-  const d = tsDraft(), cfg = gajiCfg();
-  const days = {}; Object.keys(d.days).sort().forEach(k => { days[k] = d.days[k]; });
-  const rec = { d: days }; if (d.upah && d.upah !== cfg.harian) rec.u = d.upah;
-  const ops = [up('Pengaturan', { Kunci: 'ts_' + d.P, Nilai: JSON.stringify(rec) })];
-  applyOps(ops.slice()); // agar timesheet() membaca nilai baru
-  const ex = findBy('Transaksi', gajiTrxId(d.P));
-  if (ex) { const ts = timesheet(d.P, cfg); if (ts.total > 0) ops.push(up('Transaksi', gajiTrxRec(ts, cfg, ex))); else ops.push(del('Transaksi', ex.ID)); }
-  S.tsDraft = null;
-  commit(ops, ex ? 'Timesheet disimpan • pemasukan gaji diperbarui' : 'Timesheet disimpan');
+  const cfg = gajiCfg(), drafts = Object.values(S.tsDrafts || {}).filter(d => d.dirty);
+  if (!drafts.length) { toast('Tidak ada perubahan timesheet', 'info'); return; }
+  const ops = []; let upd = false;
+  drafts.forEach(d => {
+    const days = {}; Object.keys(d.days).sort().forEach(k => { days[k] = d.days[k]; });
+    const rec = { d: days }; if (d.upah && d.upah !== cfg.harian) rec.u = d.upah;
+    const o = up('Pengaturan', { Kunci: 'ts_' + d.P, Nilai: JSON.stringify(rec) });
+    applyOps([o]); ops.push(o); // agar timesheet() membaca nilai baru
+    const ex = findBy('Transaksi', gajiTrxId(d.P));
+    if (ex) { upd = true; const ts = timesheet(d.P, cfg); ops.push(ts.total > 0 ? up('Transaksi', gajiTrxRec(ts, cfg, ex)) : del('Transaksi', ex.ID)); }
+  });
+  S.tsDrafts = {}; S.tsSel = null;
+  commit(ops, upd ? 'Timesheet disimpan • pemasukan gaji diperbarui' : 'Timesheet disimpan');
 }
 function gjPolaChange() { const r = $('#gjPola').value === 'roster'; $$('.gj-roster').forEach(e => { e.style.display = r ? '' : 'none'; }); }
 function saveGajiCfg() {
@@ -2139,17 +2147,17 @@ function saveGajiCfg() {
     gajiRosterOn: Math.max(1, num(v('gjOn')) || 14), gajiRosterOff: Math.max(0, num(v('gjOff'))), gajiRosterMulai: v('gjAnchor'),
     gajiJamNormal: Math.min(24, Math.max(1, num(v('gjJam')) || 12)), gajiBayarBulan: v('gjBayar'),
     gajiMulai: v('gjMulai') || thisYm(), gajiCutiBersama: $('#gjCuti').checked ? '1' : '0' };
-  S.tsDraft = null;
+  S.tsDrafts = {};
   commit(Object.keys(kv).map(k => up('Pengaturan', { Kunci: k, Nilai: String(kv[k]) })), 'Pengaturan gaji disimpan');
 }
 function addLibur() {
   const t = $('#lbTgl').value, n = $('#lbNama').value.trim();
   if (!t) { toast('Pilih tanggal libur', 'error'); return; }
   const list = liburTambahan().filter(x => x.t !== t); list.push({ t, n: n || 'Libur' }); list.sort((a, b) => a.t.localeCompare(b.t));
-  S.tsDraft = null; commit([up('Pengaturan', { Kunci: 'tanggalMerahTambahan', Nilai: JSON.stringify(list) })], 'Tanggal merah ditambahkan');
+  S.tsDrafts = {}; commit([up('Pengaturan', { Kunci: 'tanggalMerahTambahan', Nilai: JSON.stringify(list) })], 'Tanggal merah ditambahkan');
 }
 function delLibur(t) {
-  S.tsDraft = null;
+  S.tsDrafts = {};
   commit([up('Pengaturan', { Kunci: 'tanggalMerahTambahan', Nilai: JSON.stringify(liburTambahan().filter(x => x.t !== t)) })], 'Tanggal merah dihapus');
 }
 
@@ -2164,18 +2172,23 @@ function renderGajiTab() {
     : tutup >= 0 ? `<span class="pill pill-warn">Berjalan • tutup ${tutup ? tutup + ' hari lagi' : 'hari ini'}</span>`
     : dUntil > 0 ? `<span class="pill pill-warn">Masuk ${dUntil} hari lagi</span>` : '<span class="pill pill-gray">Menunggu</span>';
 
-  // Kalender timesheet
-  const lead = (toDate(per.dari).getDay() + 6) % 7; // Senin = kolom pertama
-  const cells = Array(lead).fill('<span class="ts-day ts-blank"></span>').concat(tanggalPeriode(P).map(ds => {
-    const d = toDate(ds), on = ds in dr.days, jam = num(dr.days[ds]), lib = namaLibur(ds, cfg), wk = isWeekend(d);
-    const roster = cfg.pola === 'roster' && isOnDuty(ds, cfg), luar = on && !isPolaKerja(ds, cfg);
-    const cls = ['ts-day', on ? 'on' : '', on && jam > cfg.jam ? 'ot' : '', luar ? 'luar' : '', lib ? 'merah' : wk ? 'wk' : '', roster ? 'duty' : '', ds === today() ? 'now' : '', ds === dr.sel ? 'sel' : ''].join(' ');
-    const title = `${HARI[d.getDay()]}, ${fmtDate(ds, true)}${lib ? ' • ' + lib : ''}${on ? ` • masuk ${jam} jam` : ' • tidak masuk'}${luar ? ' • di luar jadwal' : ''}`;
-    return `<button class="${cls}" onclick="tsTap('${ds}')" title="${esc(title)}" aria-pressed="${on}" aria-label="${esc(title)}"><b>${d.getDate()}</b><small>${on ? jam + 'j' : ''}</small></button>`;
-  })).join('');
-  const selJam = dr.sel ? num(dr.days[dr.sel]) : 0, selD = dr.sel ? toDate(dr.sel) : null;
-  const editor = dr.sel ? `<div class="ts-editor">
-      <div class="ts-ed-head"><div><b>${HARI[selD.getDay()]}, ${fmtDate(dr.sel, true)}</b><small>${!isPolaKerja(dr.sel, cfg) ? '<b class="txt-luar">Masuk di luar jadwal</b> • ' : ''}${namaLibur(dr.sel, cfg) ? esc(namaLibur(dr.sel, cfg)) + ' • ' : ''}${selJam > cfg.jam ? `lembur ${selJam - cfg.jam} jam` : 'jam normal'}</small></div>
+  // Kalender timesheet: bulan terpilih + bulan berikutnya
+  const dirtyAny = Object.values(S.tsDrafts || {}).some(x => x.dirty);
+  const kalender = M => {
+    const dm = tsDraft(M), lead = (toDate(`${M}-01`).getDay() + 6) % 7, gm = hitungGaji(dm.days, dm.upah, cfg);
+    const cells = Array(lead).fill('<span class="ts-day ts-blank"></span>').concat(tanggalPeriode(M).map(ds => {
+      const d = toDate(ds), on = ds in dm.days, jam = num(dm.days[ds]), lib = namaLibur(ds, cfg), wk = isWeekend(d);
+      const roster = cfg.pola === 'roster' && isOnDuty(ds, cfg), luar = on && !isPolaKerja(ds, cfg);
+      const cls = ['ts-day', on ? 'on' : '', on && jam > cfg.jam ? 'ot' : '', luar ? 'luar' : '', lib ? 'merah' : wk ? 'wk' : '', roster ? 'duty' : '', ds === today() ? 'now' : '', ds === S.tsSel ? 'sel' : ''].join(' ');
+      const title = `${HARI[d.getDay()]}, ${fmtDate(ds, true)}${lib ? ' • ' + lib : ''}${on ? ` • masuk ${jam} jam` : ' • tidak masuk'}${luar ? ' • di luar jadwal' : ''}`;
+      return `<button class="${cls}" onclick="tsTap('${ds}')" title="${esc(title)}" aria-pressed="${on}" aria-label="${esc(title)}"><b>${d.getDate()}</b><small>${on ? jam + 'j' : ''}</small></button>`;
+    })).join('');
+    return `<div class="ts-month"><div class="ts-month-head"><b>${fmtYm(M, true)}</b><span>${gm.hari} hari • ${gm.jam} jam${dm.dirty ? ' • <em>belum disimpan</em>' : ''}</span></div>
+      <div class="ts-grid">${['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(h => `<span class="ts-h">${h}</span>`).join('')}${cells}</div></div>`;
+  };
+  const sel = S.tsSel, selJam = sel ? num(tsDraft(sel.slice(0, 7)).days[sel]) : 0, selD = sel ? toDate(sel) : null;
+  const editor = sel ? `<div class="ts-editor">
+      <div class="ts-ed-head"><div><b>${HARI[selD.getDay()]}, ${fmtDate(sel, true)}</b><small>${!isPolaKerja(sel, cfg) ? '<b class="txt-luar">Masuk di luar jadwal</b> • ' : ''}${namaLibur(sel, cfg) ? esc(namaLibur(sel, cfg)) + ' • ' : ''}${selJam > cfg.jam ? `lembur ${selJam - cfg.jam} jam` : 'jam normal'}</small></div>
         <button class="btn-icon" onclick="tsTutup()" aria-label="Tutup"><i class="bi bi-x-lg"></i></button></div>
       <div class="ts-ed-body">
         <div class="stepper"><button onclick="tsJam(${selJam - 1})" aria-label="Kurangi jam">−</button><b>${selJam}<small> jam</small></b><button onclick="tsJam(${selJam + 1})" aria-label="Tambah jam">+</button></div>
@@ -2234,18 +2247,18 @@ function renderGajiTab() {
       <div class="kv"><span>Masuk ke</span><b>${cfg.akun ? esc(sourceName(cfg.akun)) : '—'}</b></div>
       <div class="kv"><span>Tanggal gaji masuk</span><b>${HARI[toDate(tgl).getDay()]}, ${fmtDate(tgl, true)}</b></div>
       ${alasan ? `<div class="callout gray" style="margin-top:10px"><i class="bi bi-arrow-left-circle"></i><div>${esc(alasan)}, jadi gaji dimajukan ke hari kerja sebelumnya.</div></div>` : ''}
-      ${dr.dirty ? '<div class="callout" style="margin-top:10px"><i class="bi bi-pencil"></i><div>Timesheet berubah — jangan lupa <b>simpan</b>.</div></div>' : ''}
+      ${dirtyAny ? '<div class="callout" style="margin-top:10px"><i class="bi bi-pencil"></i><div>Timesheet berubah — jangan lupa <b>simpan</b>.</div></div>' : ''}
     </div>
   </div>
 
   <div class="card" style="margin-bottom:20px">
     <div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ink"><i class="bi bi-calendar3"></i></span><div><h3>Kalender Timesheet</h3><p>${cfg.pola === 'roster' ? `Roster ${cfg.on} hari on / ${cfg.off} hari off • hari on duty sudah ditandai` : 'Hari kerja kantor sudah ditandai'}</p></div></div>
-      <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${fmtYm(P, true)}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
-    <div class="ts-grid">${['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(h => `<span class="ts-h">${h}</span>`).join('')}${cells}</div>
+      <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${BULAN[toDate(P + '-01').getMonth()]} – ${fmtYm(ymAdd(P, 1))}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
+    <div class="ts-months">${tsBulanTampil().map(kalender).join('')}</div>
     ${editor}
     <div class="ts-legend"><span><i class="lg on"></i>Masuk (jam normal)</span><span><i class="lg ot"></i>Lembur</span><span><i class="lg luar"></i>Di luar jadwal</span><span><i class="lg"></i>Tidak masuk / off</span><span><i class="lg merah"></i>Tanggal merah</span></div>
     <div class="ts-foot">
-      <div class="field" style="flex:1;min-width:180px"><label class="lbl" for="tsUpah">Upah harian periode ini</label><div class="money-input"><input class="input" id="tsUpah" inputmode="numeric" autocomplete="off" value="${fmtMoneyInput(dr.upah)}" oninput="this.value=fmtMoneyInput(this.value); tsUpah(this.value)" onchange="renderPengaturan()"></div></div>
+      <div class="field" style="flex:1;min-width:180px"><label class="lbl" for="tsUpah">Upah harian ${fmtYm(P, true)}</label><div class="money-input"><input class="input" id="tsUpah" inputmode="numeric" autocomplete="off" value="${fmtMoneyInput(dr.upah)}" oninput="this.value=fmtMoneyInput(this.value); tsUpah(this.value)" onchange="renderPengaturan()"></div></div>
       <div class="actions-row" style="margin:0">
         <button class="btn btn-ghost btn-sm" onclick="tsIsi('kosong')"><i class="bi bi-eraser"></i> Kosongkan</button>
         <button class="btn btn-secondary btn-sm" onclick="tsIsi('default')"><i class="bi bi-magic"></i> Isi sesuai roster</button>
