@@ -1787,9 +1787,19 @@ function renderKartuDetail() {
         .map(([id, ic, l, c]) => `<button class="tab ${tab === id ? 'on' : ''}" onclick="S.kartuDetail.tab='${id}'; renderKartuDetail()"><i class="bi ${ic}"></i> ${l}${c !== '' ? ` <span class="cnt">${c}</span>` : ''}</button>`).join('')}
     </div>
     <div class="${tab === 'riwayat' ? 'card' : ''}">${body}</div>`;
+  syncTabs();
 }
 
 /* ───────────── HALAMAN: TAGIHAN & PENGINGAT ───────────── */
+/** Setelah render ulang, geser baris pil (yang bisa digulir di HP) agar pil aktif tetap terlihat */
+function syncTabs() {
+  $$('.tabs').forEach(t => {
+    const on = t.querySelector('.tab.on');
+    if (!on || t.scrollWidth <= t.clientWidth) return;
+    const tr = t.getBoundingClientRect(), r = on.getBoundingClientRect();
+    t.scrollLeft += (r.left - tr.left) - (t.clientWidth - r.width) / 2;
+  });
+}
 function renderTagihan() {
   const tab = S.tagihanTab;
   const L = S.data.Langganan, R = S.data.Tagihan_Rutin, V = S.data.Kendaraan;
@@ -1810,6 +1820,7 @@ function renderTagihan() {
       <button class="tab ${tab === 'pajak' ? 'on' : ''}" onclick="S.tagihanTab='pajak'; renderTagihan()"><i class="bi bi-car-front"></i> Pajak Kendaraan <span class="cnt">${V.filter(isActive).length}</span></button>
     </div>
     ${body}`;
+  syncTabs();
 }
 
 function tabLangganan(L) {
