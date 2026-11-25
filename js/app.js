@@ -2105,7 +2105,10 @@ function tsDraft(P) {
   if (!S.tsDrafts[P]) { const ts = timesheet(P); S.tsDrafts[P] = { P, days: Object.assign({}, ts.days), upah: ts.upah, dirty: false }; }
   return S.tsDrafts[P];
 }
-function tsBulanTampil() { const P = S.gajiYm || thisYm(); return [P, ymAdd(P, 1)]; }
+const MQ_HP = window.matchMedia('(max-width: 767px)');
+/** Laptop: bulan terpilih + bulan berikutnya; HP: satu bulan saja agar tidak memenuhi layar */
+function tsBulanTampil() { const P = S.gajiYm || thisYm(); return MQ_HP.matches ? [P] : [P, ymAdd(P, 1)]; }
+MQ_HP.addEventListener('change', () => { if (S.page === 'pengaturan' && S.settingsTab === 'gaji') renderPengaturan(); });
 /** Ketuk tanggal: belum masuk → tandai masuk (jam normal) & pilih; sudah masuk → pilih untuk ubah jam */
 function tsTap(ds) {
   const d = tsDraft(ds.slice(0, 7));
@@ -2253,7 +2256,7 @@ function renderGajiTab() {
 
   <div class="card" style="margin-bottom:20px">
     <div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ink"><i class="bi bi-calendar3"></i></span><div><h3>Kalender Timesheet</h3><p>${cfg.pola === 'roster' ? `Roster ${cfg.on} hari on / ${cfg.off} hari off • hari on duty sudah ditandai` : 'Hari kerja kantor sudah ditandai'}</p></div></div>
-      <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${BULAN[toDate(P + '-01').getMonth()]} – ${fmtYm(ymAdd(P, 1))}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
+      <div class="ts-nav"><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, -1)}')" aria-label="Bulan sebelumnya"><i class="bi bi-chevron-left"></i></button><b>${MQ_HP.matches ? fmtYm(P, true) : `${BULAN[toDate(P + '-01').getMonth()]} – ${fmtYm(ymAdd(P, 1))}`}</b><button class="btn-icon" onclick="gajiSetYm('${ymAdd(P, 1)}')" aria-label="Bulan berikutnya"><i class="bi bi-chevron-right"></i></button></div></div>
     <div class="ts-months">${tsBulanTampil().map(kalender).join('')}</div>
     ${editor}
     <div class="ts-legend"><span><i class="lg on"></i>Masuk (jam normal)</span><span><i class="lg ot"></i>Lembur</span><span><i class="lg luar"></i>Di luar jadwal</span><span><i class="lg"></i>Tidak masuk / off</span><span><i class="lg merah"></i>Tanggal merah</span></div>
