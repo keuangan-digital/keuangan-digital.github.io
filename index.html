@@ -27,7 +27,10 @@
     })();
   </script>
   <link rel="stylesheet" href="css/style.css?v=20261125">
-  <link rel="stylesheet" href="css/card-art.css?v=20261104b">
+  <!-- Gambar kartu kredit diunduh sejak awal agar tidak telat muncul -->
+  <link rel="preload" as="image" type="image/webp" href="img/card-mandiri-jcb.webp?v=4" fetchpriority="high">
+  <link rel="preload" as="image" type="image/webp" href="img/card-mandiri-pertamina.webp?v=2" fetchpriority="high">
+  <link rel="stylesheet" href="css/card-art.css?v=20261125">
 </head>
 <body>
   <a class="skip-link" href="javascript:void(0)" onclick="document.getElementById('main').focus()">Lewati ke konten</a>

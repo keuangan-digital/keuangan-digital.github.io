@@ -2,9 +2,10 @@
    CARD ART — latar kartu kredit (gambar di folder img/)
    Teks contoh (nama, nomor, masa berlaku) sudah dihapus dari gambar;
    nomor 4 digit, limit, dan nama pemilik ditampilkan oleh aplikasi.
+   Lapisan kedua = pratinjau mini (base64) agar kartu langsung tampil saat gambar asli masih dimuat.
    ============================================================ */
 .cc-skin-mandiri-jcb {
-  background-image: url("../img/card-mandiri-jcb.webp?v=3");
+  background-image: url("../img/card-mandiri-jcb.webp?v=4"), url("data:image/webp;base64,UklGRsYAAABXRUJQVlA4ILoAAABQBQCdASogABQAPrVMnkonJKKhsAgA4BaJaACdMoADTrD7H2OGn2OI+NApKUxQ/Zp2l9AA/vfpJZ8LPdMDLFbf7crgBX32ayURhcaOzYjTQ5h29BdbBYq73NVir7JhptSJPISv3Rb/HCKxqeCvZUwjzV6UI8Xd7KNM5r0Eg6sIXlGJckN7kuiE+aWLW8XraOo3FSuiPJgE8I47fgU/0LVOrUVyS/YX7iwgrCwtj8vs7yeobX9v7S8AAAA=");
   background-color: #fff;
   --cc-num: #A47A26; --cc-name: #FFF8E6; --cc-limit: #8A6620;
   --cc-shadow: 0 1px 0 rgba(255,255,255,.7);
@@ -12,7 +13,7 @@
   --cc-pos-num: 50.6%; --cc-pos-limit-top: 61.2%; --cc-pos-limit-left: 8.6%; --cc-pos-name: 80.5%; --cc-pos-x: 8.6%;
 }
 .cc-skin-mandiri-pertamina {
-  background-image: url("../img/card-mandiri-pertamina.webp");
+  background-image: url("../img/card-mandiri-pertamina.webp?v=2"), url("data:image/webp;base64,UklGRsQAAABXRUJQVlA4ILgAAACwBACdASogABQAPqFGmUmmJCKhN/qoAMAUCWIAAFu2KYIwL4ZIkfc7D47j9vMgAP74orsY6E7MULO6ZeRqRO+9nqVXv7yTPhrpJBY/9Bq5EzHfUuSA9K6XAppTWWU1/748gw4pNOGUS0wLMtw9xWz4fphntEtXTu1RkCG8/Ta9m4U6Dj3sHXVXLb5UUQbJFOyO/4no5GMX85Sw7uev04+NtZpq6dFPhTo53I4arGi4uTz39LLzmAAA");
   background-color: #000;
   --cc-num: #E6C67F; --cc-name: #E6C67F; --cc-limit: #E6C67F;
   --cc-shadow: 0 1px 2px rgba(0,0,0,.9);
