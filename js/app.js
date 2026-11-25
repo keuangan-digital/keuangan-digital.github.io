@@ -2301,10 +2301,25 @@ function toggleSetDropdown(where) {
   box.hidden = !open; btn.classList.toggle('dd-open', open); btn.setAttribute('aria-expanded', open);
   if (open && where === 'side') posSetPop();
 }
-/** Panel badge pengaturan melayang di luar navbar, sejajar tombol Pengaturan */
+/** HP: tutup panel Lainnya, lalu tampilkan dropdown pengaturan melayang di atas navigasi bawah */
+function openSetPopMobile() {
+  closeAllOverlays();
+  const box = $('#setDropdown');
+  renderSetDropdown('side'); box.hidden = false; posSetPop();
+}
+/** Dropdown pengaturan melayang di luar navbar: di samping sidebar (laptop) atau di atas navigasi bawah (HP) */
 function posSetPop() {
   const box = $('#setDropdown'), btn = $('#setDdBtn');
   if (box.parentElement !== document.body) document.body.appendChild(box);
+  const bn = $('.bottom-nav'), mobile = bn && getComputedStyle(bn).display !== 'none';
+  box.classList.toggle('mobile', !!mobile);
+  if (mobile) {
+    const nb = bn.getBoundingClientRect(), more = $('.bn-item[data-nav="lainnya"]').getBoundingClientRect();
+    box.style.top = 'auto'; box.style.left = ''; box.style.bottom = (window.innerHeight - nb.top + 30) + 'px';
+    box.style.setProperty('--arrow-x', Math.max(24, more.left + more.width / 2 - 12) + 'px');
+    return;
+  }
+  box.style.bottom = '';
   const r = btn.getBoundingClientRect(), side = $('#sidebar').getBoundingClientRect();
   box.style.left = (side.right + 12) + 'px';
   const h = box.offsetHeight, top = Math.max(12, Math.min(r.top - 8, window.innerHeight - h - 12));
@@ -2313,7 +2328,7 @@ function posSetPop() {
 }
 document.addEventListener('click', e => {
   const box = $('#setDropdown');
-  if (box && !box.hidden && !box.contains(e.target) && !e.target.closest('#setDdBtn')) closeSetDropdown();
+  if (box && !box.hidden && !box.contains(e.target) && !e.target.closest('#setDdBtn, #sheetSetBtn')) closeSetDropdown();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetDropdown(); });
 window.addEventListener('resize', () => { const box = $('#setDropdown'); if (box && !box.hidden) posSetPop(); });

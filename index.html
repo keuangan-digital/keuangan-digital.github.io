@@ -26,7 +26,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=20261124f">
+  <link rel="stylesheet" href="css/style.css?v=20261125">
   <link rel="stylesheet" href="css/card-art.css?v=20261104b">
 </head>
 <body>
@@ -135,8 +135,7 @@
     <div class="sheet-grip"></div>
     <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('kartu')"><i class="bi bi-credit-card-2-front"></i> Kartu Kredit</button>
     <button class="sheet-item" onclick="closeAllOverlays(); navigateTo('laporan')"><i class="bi bi-bar-chart-line"></i> Laporan</button>
-    <button class="sheet-item" id="sheetSetBtn" onclick="toggleSetDropdown('sheet')" aria-expanded="false"><i class="bi bi-gear"></i> Pengaturan<i class="bi bi-chevron-down dd-caret"></i></button>
-    <div class="sheet-sub" id="sheetSetList" hidden></div>
+    <button class="sheet-item" id="sheetSetBtn" onclick="openSetPopMobile()" aria-haspopup="menu"><i class="bi bi-gear"></i> Pengaturan<i class="bi bi-chevron-right dd-caret"></i></button>
     <button class="sheet-item" onclick="closeAllOverlays(); logoutDevice()"><i class="bi bi-box-arrow-right"></i> Keluar</button>
   </div>
 
@@ -157,6 +156,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js?v=20261104"></script>
-  <script src="js/app.js?v=20261124e"></script>
+  <script src="js/app.js?v=20261125"></script>
 </body>
 </html>

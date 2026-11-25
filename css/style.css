@@ -730,4 +730,11 @@ body.sb-collapsed .nav-dd .dd-caret { display: none; }
 #moreMenu { max-height: 88vh; overflow-y: auto; }
 @media (max-width: 400px) { .sheet-sub { padding-left: 14px; } }
 @media (min-width: 768px) and (max-width: 1023px) { body:not(.sb-open) .nav-dd .dd-caret { display: none; } }
-}
+
+/* Dropdown pengaturan di HP: melayang di atas navigasi bawah */
+.nav-sub.mobile { left: 12px; right: 12px; width: auto; max-height: calc(100vh - 160px); overflow-y: auto; border-radius: 20px; padding: 10px; animation: popUp .18s ease;
+  box-shadow: 0 -6px 40px rgba(0,0,0,.35); }
+.nav-sub.mobile::before { display: none; }
+.nav-sub.mobile .nav-subitem { min-height: 48px; font-size: 15px; }
+.nav-sub.mobile .nav-subitem i { font-size: 18px; width: 22px; }
+@keyframes popUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
