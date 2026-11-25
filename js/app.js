@@ -1287,18 +1287,34 @@ function chartBase() {
 }
 function lastMonths(n) { const out = []; for (let i = n - 1; i >= 0; i--) out.push(ymAdd(thisYm(), -i)); return out; }
 
-function drawBar(key, canvasId, months) {
+/** Isi gradasi area dari warna garis ke transparan */
+function areaFill(hex, a1, a2) {
+  return ctx => {
+    const { chart } = ctx, area = chart.chartArea;
+    if (!area) return hex + '33';
+    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+    g.addColorStop(0, hex + a1); g.addColorStop(1, hex + a2); return g;
+  };
+}
+function drawBar(key, canvasId, months, opt) {
+  const area = opt && opt.area;
   destroyChart(key);
   const el = document.getElementById(canvasId); if (!el || !window.Chart) return;
   chartBase();
   const inc = months.map(m => monthTotals(m).inc), exp = months.map(m => monthTotals(m).exp);
   const expColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#8C8C94' : '#3A3A3A';
   S.charts[key] = new Chart(el, {
-    type: 'bar',
+    type: area ? 'line' : 'bar',
     data: { labels: months.map(m => BULAN[Number(m.slice(5)) - 1]),
       datasets: [
-        { label: 'Pemasukan', data: inc, backgroundColor: '#FF7A00', borderRadius: 8, maxBarThickness: 26 },
-        { label: 'Pengeluaran', data: exp, backgroundColor: expColor, borderRadius: 8, maxBarThickness: 26 }
+        area
+          ? { label: 'Pemasukan', data: inc, borderColor: '#FF7A00', backgroundColor: areaFill('#FF7A00', '59', '05'), fill: 'origin', tension: .38, borderWidth: 2.5,
+              pointRadius: 3.5, pointHoverRadius: 6, pointBackgroundColor: '#FF7A00', pointBorderColor: cssVar('--surface'), pointBorderWidth: 2 }
+          : { label: 'Pemasukan', data: inc, backgroundColor: '#FF7A00', borderRadius: 8, maxBarThickness: 26 },
+        area
+          ? { label: 'Pengeluaran', data: exp, borderColor: expColor, backgroundColor: areaFill(expColor, '40', '03'), fill: 'origin', tension: .38, borderWidth: 2.5,
+              pointRadius: 3.5, pointHoverRadius: 6, pointBackgroundColor: expColor, pointBorderColor: cssVar('--surface'), pointBorderWidth: 2 }
+          : { label: 'Pengeluaran', data: exp, backgroundColor: expColor, borderRadius: 8, maxBarThickness: 26 }
       ] },
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
@@ -1307,7 +1323,7 @@ function drawBar(key, canvasId, months) {
         tooltip: { backgroundColor: '#121212', padding: 12, cornerRadius: 12, titleFont: { weight: '700' },
           callbacks: { label: c => ` ${c.dataset.label}: ${rp(c.parsed.y)}`, footer: items => `Selisih: ${rp(items[0].parsed.y - (items[1] ? items[1].parsed.y : 0))}` } } },
       scales: {
-        x: { grid: { display: false }, border: { display: false } },
+        x: { grid: { display: false }, border: { display: false }, offset: !area },
         y: { beginAtZero: true, border: { display: false }, grid: { color: cssVar('--border') }, ticks: { callback: v => rpShort(v).replace('Rp ', '') } }
       }
     }
@@ -1465,7 +1481,7 @@ function renderDashboard() {
     </div>
     ${insight ? `<div class="insight"><i class="bi bi-lightbulb"></i><div>${insight}</div></div>` : ''}`;
 
-  drawBar('dashBar', 'dashBar', months);
+  drawBar('dashBar', 'dashBar', months, { area: true });
   if (cat.rows.length) drawDonut('dashDonut', 'dashDonut', cat.rows);
 }
 
