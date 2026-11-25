@@ -2001,7 +2001,7 @@ function renderLaporan() {
         </tr>`).join('')}</tbody></table></div>`
         : `<div style="padding:0 24px 24px">${emptyState('bi-clipboard-data', 'Belum ada data', 'Laporan terisi otomatis dari transaksi Anda.')}</div>`}
     </div>`;
-  drawBar('lapBar', 'lapBar', months);
+  drawBar('lapBar', 'lapBar', months, { area: true });
   if (cat.rows.length) drawDonut('lapDonut', 'lapDonut', cat.rows);
 }
 
