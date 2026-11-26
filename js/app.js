@@ -2173,10 +2173,13 @@ function saveTimesheet() {
   commit(ops, upd ? 'Timesheet disimpan • pemasukan gaji diperbarui' : 'Timesheet disimpan');
 }
 /** Tombol ⋯ di Pengaturan Gaji: tampilkan/sembunyikan opsi lainnya tanpa render ulang (isian tetap) */
-function toggleGjOpsi() {
-  const box = $('#gjOpsi'), btn = $('#gjMoreBtn'); if (!box) return;
-  S.gjOpsi = box.hidden; box.hidden = !S.gjOpsi; btn.classList.toggle('on', S.gjOpsi); btn.setAttribute('aria-expanded', S.gjOpsi);
+function toggleGjOpsi(force) {
+  const box = $('#gjOpsi'), btn = $('#gjMoreBtn'), bg = $('.gj-opsi-bg'); if (!box) return;
+  S.gjOpsi = force == null ? box.hidden : force;
+  box.hidden = !S.gjOpsi; if (bg) bg.hidden = !S.gjOpsi; btn.classList.toggle('on', S.gjOpsi); btn.setAttribute('aria-expanded', S.gjOpsi);
+  if (S.gjOpsi) { const f = box.querySelector('select, input'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 50); }
 }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#gjOpsi') && !$('#gjOpsi').hidden) toggleGjOpsi(false); });
 function gjPolaChange() { const r = $('#gjPola').value === 'roster'; $$('.gj-roster').forEach(e => { e.style.display = r ? '' : 'none'; }); }
 function saveGajiCfg() {
   const v = id => $('#' + id).value;
@@ -2188,7 +2191,7 @@ function saveGajiCfg() {
     gajiRosterOn: Math.max(1, num(v('gjOn')) || 14), gajiRosterOff: Math.max(0, num(v('gjOff'))), gajiRosterMulai: v('gjAnchor'),
     gajiJamNormal: Math.min(24, Math.max(1, num(v('gjJam')) || 12)), gajiBayarBulan: v('gjBayar'),
     gajiMulai: v('gjMulai') || thisYm(), gajiCutiBersama: $('#gjCuti').checked ? '1' : '0' };
-  S.tsDrafts = {};
+  S.tsDrafts = {}; S.gjOpsi = false;
   commit(Object.keys(kv).map(k => up('Pengaturan', { Kunci: k, Nilai: String(kv[k]) })), 'Pengaturan gaji disimpan');
 }
 function addLibur() {
@@ -2275,7 +2278,7 @@ function renderGajiTab() {
         <div class="field"><label class="lbl" for="gjJam">Jam kerja normal/hari (pembagi)</label><input class="input" id="gjJam" type="number" min="1" max="24" value="${cfg.jam}"></div>
         <p class="hint" style="margin:-4px 0 0">Lembur otomatis ikut dihitung: total jam ÷ jam normal = hari kerja setara.</p>
         <div class="gj-opsi" id="gjOpsi" ${gjOpen ? '' : 'hidden'}>
-        <div class="gj-opsi-head"><i class="bi bi-sliders"></i> Opsi lainnya</div>
+        <div class="gj-opsi-head"><span><i class="bi bi-sliders"></i> Opsi pengaturan gaji</span><button class="btn-icon" onclick="toggleGjOpsi()" aria-label="Tutup"><i class="bi bi-x-lg"></i></button></div>
         <div class="field"><label class="lbl" for="gjPola">Pola kerja</label><select class="input" id="gjPola" onchange="gjPolaChange()">${opt('roster', 'Roster on/off (mis. 2-2)', cfg.pola)}${opt('5', 'Kantor Senin–Jumat', cfg.pola)}${opt('6', 'Kantor Senin–Sabtu', cfg.pola)}</select></div>
         <div class="grid g-2 pair-sm gj-roster" style="margin:0;gap:12px" ${ro}>
           <div class="field"><label class="lbl" for="gjOn">Hari on duty</label><input class="input" id="gjOn" type="number" min="1" max="90" value="${cfg.on}"></div>
@@ -2289,7 +2292,8 @@ function renderGajiTab() {
         <div class="field"><label class="lbl" for="gjAkun">Gaji masuk ke akun</label><select class="input" id="gjAkun"><option value="">Pilih akun…</option>${sourceOptions(false).map(o => opt(o.v, esc(o.l), cfg.akun)).join('')}</select></div>
         <div class="field"><label class="lbl" for="gjMulai">Catat otomatis mulai timesheet periode</label><input class="input" id="gjMulai" type="month" value="${cfg.mulai || ymAdd(thisYm(), -1)}"></div>
         <label class="check-row"><input type="checkbox" id="gjCuti" ${cfg.cuti ? 'checked' : ''}> Cuti bersama dihitung tanggal merah (untuk tanggal gajian)</label>
-        </div>
+        <div class="gj-opsi-foot"><button class="btn btn-ghost btn-sm" onclick="toggleGjOpsi()">Tutup</button><button class="btn btn-primary btn-sm" onclick="saveGajiCfg()"><i class="bi bi-check2"></i> Simpan</button></div>
+        </div><div class="gj-opsi-bg" ${gjOpen ? '' : 'hidden'} onclick="toggleGjOpsi()"></div>
         <button class="btn btn-primary" onclick="saveGajiCfg()"><i class="bi bi-check2"></i> Simpan pengaturan</button>
       </div></div>
     <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm ic-ok"><i class="bi bi-calendar2-check"></i></span><div><h3>Timesheet ${fmtYm(P, true)}</h3><p>Periode ${fmtDate(per.dari)} – ${fmtDate(per.sampai)} • tutup buku ${fmtDate(per.sampai)}</p></div></div>${status}</div>
