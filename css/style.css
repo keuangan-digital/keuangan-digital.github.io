@@ -738,3 +738,15 @@ body.sb-collapsed .nav-dd .dd-caret { display: none; }
 .nav-sub.mobile .nav-subitem { min-height: 48px; font-size: 15px; }
 .nav-sub.mobile .nav-subitem i { font-size: 18px; width: 22px; }
 @keyframes popUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* Cuti di hari kerja (kuning, tidak dihitung) */
+.ts-day.cuti, .ts-day.cuti.duty { background: #FFC93C; border: 1.5px solid #FFC93C; color: #3A2A00; }
+.ts-day.cuti small { color: #5C4300; font-weight: 700; }
+.ts-day.cuti b { color: #3A2A00 !important; }
+.ts-legend .lg.cuti { background: #FFC93C; border-color: #FFC93C; }
+.txt-cuti { color: #B58300; font-weight: 700; }
+.ts-editor.cuti { border-color: #FFC93C; background: rgba(255,201,60,.14); }
+.btn-cuti { background: #FFC93C; color: #3A2A00; border: 0; font-weight: 600; }
+.btn-cuti:hover { background: #F5B800; }
+.pill-cuti { background: rgba(255,201,60,.22); color: #8A6400; }
+[data-theme="dark"] .pill-cuti, [data-theme="dark"] .txt-cuti { color: #FFD45C; }
