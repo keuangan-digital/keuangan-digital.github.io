@@ -549,7 +549,7 @@ function duePill(days) {
 }
 
 /* ───────────── NAVIGASI (SPA, 0 ms) ───────────── */
-function navigateTo(page) {
+function navigateTo(page, opt) {
   if (page === 'lainnya') { openMore(); return; }
   if (!PAGE_TITLES[page]) page = 'dashboard';
   S.page = page;
@@ -566,6 +566,7 @@ function navigateTo(page) {
   document.title = PAGE_TITLES[page] + ' • Keuangan Digital';
   window.scrollTo(0, 0);
   renderPage(page);
+  if (!(opt && opt.hist)) histNav();
 }
 
 function renderPage(page) {
@@ -602,8 +603,68 @@ function setTheme(t) {
   renderPage(S.page);
 }
 
+/* ───────────── TOMBOL / GESTUR KEMBALI (History API) ─────────────
+   Tiap pindah halaman & tiap popup/menu yang terbuka dicatat di riwayat browser, sehingga
+   gestur "back" (mis. swipe di Samsung) menutup popup atau kembali ke halaman sebelumnya,
+   bukan langsung menutup aplikasi. Di Dashboard: tekan kembali 2x untuk keluar. */
+const H = { ov: false, pending: 0, queue: [], exitAt: 0 };
+function navState() {
+  return { kd: 'page', page: S.page, tab: S.page === 'pengaturan' ? S.settingsTab : S.page === 'kartuDetail' ? S.kartuDetail : null };
+}
+function hPush(st) { if (H.pending) H.queue.push(st); else { try { history.pushState(st, ''); } catch (e) { /* abaikan */ } } }
+function histNav() {
+  const st = navState(), cur = H.pending ? H.queue[H.queue.length - 1] : history.state;
+  if (cur && cur.kd === 'page' && cur.page === st.page && JSON.stringify(cur.tab) === JSON.stringify(st.tab)) return;
+  hPush(st);
+}
+function histReplace() {
+  const st = navState();
+  if (H.pending && H.queue.length) { H.queue[H.queue.length - 1] = st; return; }
+  if (history.state && history.state.kd === 'page') { try { history.replaceState(st, ''); } catch (e) { /* abaikan */ } }
+}
+function anyOverlayOpen() {
+  const dd = $('#setDropdown'), gj = $('#gjOpsi');
+  return $('#backdrop').classList.contains('show') || !!(dd && !dd.hidden) || !!(gj && !gj.hidden && gj.closest('.page.active'));
+}
+/** Popup/menu dibuka → tambahkan satu entri riwayat (sekali saja selama masih ada popup terbuka) */
+function ovOpened() { if (!H.ov) { H.ov = true; hPush({ kd: 'ov' }); } }
+/** Popup ditutup lewat tombol/klik → buang entri popup dari riwayat agar "back" berikutnya tidak terbuang */
+function ovClosed() {
+  if (!H.ov || anyOverlayOpen()) return;
+  H.ov = false;
+  const last = H.queue[H.queue.length - 1];
+  if (last && last.kd === 'ov') { H.queue.pop(); return; }
+  H.pending++; history.back();
+}
+function closeEveryOverlay() {
+  closeAllOverlays();
+  const gj = $('#gjOpsi'); if (gj && !gj.hidden) toggleGjOpsi(false);
+  closeSetDropdown();
+}
+window.addEventListener('popstate', e => {
+  if (H.pending) { // akibat history.back() dari kode sendiri
+    H.pending--;
+    if (!H.pending && H.queue.length) { const q = H.queue; H.queue = []; q.forEach(st => { try { history.pushState(st, ''); } catch (err) { /* abaikan */ } }); }
+    return;
+  }
+  const st = e.state || {};
+  if (H.ov) { H.ov = false; closeEveryOverlay(); return; }        // back = tutup popup
+  if (anyOverlayOpen()) { H.ov = false; closeEveryOverlay(); }
+  if (st.kd === 'ov') { H.pending++; history.back(); return; }      // entri popup basi (maju lagi)
+  if (st.kd === 'root' || !st.kd) {                                  // paling awal: jangan langsung keluar
+    if (S.page !== 'dashboard') { navigateTo('dashboard', { hist: true }); hPush(navState()); return; }
+    if (Date.now() - H.exitAt < 2200) { history.back(); return; }
+    H.exitAt = Date.now(); toast('Kembali sekali lagi untuk keluar', 'info'); hPush(navState()); return;
+  }
+  if (st.kd === 'page') {
+    if (st.page === 'pengaturan' && st.tab) S.settingsTab = st.tab;
+    if (st.page === 'kartuDetail') { if (st.tab && findBy('Kartu_Kredit', st.tab.id)) S.kartuDetail = st.tab; else { navigateTo('kartu', { hist: true }); return; } }
+    navigateTo(st.page, { hist: true });
+  }
+});
+
 /* ───────────── OVERLAY: drawer, modal, toast ───────────── */
-function showBackdrop() { $('#backdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+function showBackdrop() { $('#backdrop').classList.add('show'); document.body.style.overflow = 'hidden'; ovOpened(); }
 function closeAllOverlays() {
   $('#backdrop').classList.remove('show');
   $('#drawer').classList.remove('show');
@@ -611,6 +672,7 @@ function closeAllOverlays() {
   $('#modal').classList.remove('show');
   document.body.style.overflow = '';
   if (S._confirmResolve) { S._confirmResolve(false); S._confirmResolve = null; }
+  ovClosed();
 }
 function openMore() { showBackdrop(); $('#moreMenu').classList.add('show'); }
 function openDrawer() { renderDrawer(); showBackdrop(); $('#drawer').classList.add('show'); setTimeout(() => $('#drawer .icon-btn').focus(), 50); }
@@ -2177,6 +2239,7 @@ function toggleGjOpsi(force) {
   const box = $('#gjOpsi'), btn = $('#gjMoreBtn'), bg = $('.gj-opsi-bg'); if (!box) return;
   S.gjOpsi = force == null ? box.hidden : force;
   box.hidden = !S.gjOpsi; if (bg) bg.hidden = !S.gjOpsi; btn.classList.toggle('on', S.gjOpsi); btn.setAttribute('aria-expanded', S.gjOpsi);
+  if (S.gjOpsi) ovOpened(); else ovClosed();
   if (S.gjOpsi) { const f = box.querySelector('select, input'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 50); }
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#gjOpsi') && !$('#gjOpsi').hidden) toggleGjOpsi(false); });
@@ -2265,11 +2328,11 @@ function renderGajiTab() {
     .concat(liburTambahan().filter(x => x.t.startsWith(th)).map(x => ({ t: x.t, n: x.n, j: 'Tambahan' })))
     .sort((a, b) => a.t.localeCompare(b.t));
 
-  const gjOpen = S.gjOpsi == null ? !siap : S.gjOpsi;
+  const gjOpen = !!S.gjOpsi;
   const opt = (v, l, cur) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${l}</option>`;
   const ro = cfg.pola === 'roster' ? '' : 'style="display:none"';
   return `
-  ${siap ? '' : `<div class="callout" style="margin-bottom:16px"><i class="bi bi-info-circle"></i><div><b>Mulai di sini:</b> isi upah harian, roster, dan akun penerima gaji, lalu simpan. Gaji otomatis tercatat sebagai pemasukan pada tanggal gajian.</div></div>`}
+  ${siap ? '' : `<div class="callout" style="margin-bottom:16px"><i class="bi bi-info-circle"></i><div><b>Mulai di sini:</b> isi upah harian, lalu lengkapi roster dan akun penerima gaji lewat tombol <b>⋯</b>. Gaji otomatis tercatat sebagai pemasukan pada tanggal gajian. <button class="btn-link" onclick="toggleGjOpsi(true)">Buka opsi pengaturan gaji</button></div></div>`}
   <div class="grid g-2" style="margin-bottom:20px">
     <div class="card"><div class="card-head"><div class="card-title-ic"><span class="ic-sq sm"><i class="bi bi-cash-coin"></i></span><div><h3>Pengaturan Gaji</h3><p>Gaji = (total jam ÷ jam normal) × upah harian</p></div></div>
         <button class="btn-icon gj-more ${gjOpen ? 'on' : ''}" id="gjMoreBtn" onclick="toggleGjOpsi()" title="Opsi lainnya" aria-label="Opsi lainnya" aria-expanded="${gjOpen}" aria-controls="gjOpsi"><i class="bi bi-three-dots"></i></button></div>
@@ -2358,12 +2421,13 @@ function toggleSetDropdown(where) {
   if (open) renderSetDropdown(where);
   box.hidden = !open; btn.classList.toggle('dd-open', open); btn.setAttribute('aria-expanded', open);
   if (open && where === 'side') posSetPop();
+  if (open) ovOpened(); else ovClosed();
 }
 /** HP: tutup panel Lainnya, lalu tampilkan dropdown pengaturan melayang di atas navigasi bawah */
 function openSetPopMobile() {
   closeAllOverlays();
   const box = $('#setDropdown');
-  renderSetDropdown('side'); box.hidden = false; posSetPop();
+  renderSetDropdown('side'); box.hidden = false; posSetPop(); ovOpened();
 }
 /** Dropdown pengaturan melayang di luar navbar: di samping sidebar (laptop) atau di atas navigasi bawah (HP) */
 function posSetPop() {
@@ -2392,10 +2456,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetDrop
 window.addEventListener('resize', () => { const box = $('#setDropdown'); if (box && !box.hidden) posSetPop(); });
 function closeSetDropdown() {
   [['#setDropdown', '#setDdBtn'], ['#sheetSetList', '#sheetSetBtn']].forEach(([b, t]) => { const box = $(b), btn = $(t); if (box) box.hidden = true; if (btn) { btn.classList.remove('dd-open'); btn.setAttribute('aria-expanded', 'false'); } });
+  ovClosed();
 }
 /** Pilih menu pengaturan: buka halamannya lalu dropdown otomatis tertutup */
 function pickSetting(id) { closeAllOverlays(); S.settingsTab = id; navigateTo('pengaturan'); }
-function setSettingsTab(t) { S.settingsTab = t; if (S.page === 'pengaturan') { renderPengaturan(); window.scrollTo(0, 0); } }
+function setSettingsTab(t) { S.settingsTab = t; if (S.page === 'pengaturan') { renderPengaturan(); window.scrollTo(0, 0); histReplace(); } }
 
 function renderPengaturan() {
   const tab = S.settingsTab;
@@ -2681,6 +2746,7 @@ function bindGlobal() {
 function boot() {
   if (lsGet(LS.sb)) document.body.classList.add('sb-collapsed');
   bindGlobal();
+  try { history.replaceState({ kd: 'root' }, ''); } catch (e) { /* abaikan */ }
   navigateTo('dashboard');
   S.queue = lsGet(LS.queue) || [];
   if (!gasUrl()) { showAuth('config'); return; }
